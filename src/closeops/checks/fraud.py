@@ -32,6 +32,8 @@ _SOFT_ACTION = {
     "round_amount": "Informational: large round-number outgoing payment.",
     "weekend_posting": "Informational: journal entry posted on a weekend.",
 }
+# Informational signals: excluded from scoring (and optionally from export).
+SOFT_CHECKS = frozenset({"round_amount", "weekend_posting"})
 PRECEDENCE = ["iban_changed_before_payment", "iban_not_in_master", "iban_country_mismatch"]
 
 
