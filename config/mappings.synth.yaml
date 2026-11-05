@@ -1,0 +1,115 @@
+# Column mapping for the synthetic dataset written by closeops.synth.generate.
+# Build-day template: copy this file, point `files` at the real raw files and map each
+# canonical column (left) to the source column header (right). Unmapped canonical
+# columns load as missing; unmapped source columns are kept as x_<name>.
+period_end: 2026-10-31
+tables:
+  vendors:
+    files: ["vendors.csv"]
+    columns:
+      vendor_id: "Vendor No"
+      entity: "Company"
+      name: "Vendor Name"
+      country: "Country"
+      vat_id: "VAT Reg No"
+      iban: "IBAN"
+  vendor_bank_history:
+    files: ["vendor_bank_changes.csv"]
+    columns:
+      vendor_id: "Supplier"
+      iban: "New IBAN"
+      changed_at: "Changed On"
+      changed_by: "Changed By"
+  purchase_orders:
+    files: ["purchase_orders.xlsx"]
+    sheet: "PO Lines"
+    columns:
+      po_id: "PO Number"
+      entity: "Company"
+      vendor_id: "Supplier"
+      po_date: "PO Date"
+      item: "Material"
+      qty: "Ordered Qty"
+      unit_price: "Net Price"
+      currency: "Curr"
+      approved_by: "Approver"
+  goods_receipts:
+    files: ["goods_receipts.csv"]
+    columns:
+      gr_id: "GR No"
+      po_id: "PO Ref"
+      receipt_date: "Received On"
+      qty_received: "Qty Recv"
+  invoices:
+    files: ["invoices.csv"]
+    columns:
+      invoice_id: "Doc ID"
+      entity: "Company Code"
+      vendor_id: "Supplier No"
+      invoice_no: "Invoice No."
+      invoice_date: "Invoice Date"
+      service_period_end: "Service Period End"
+      po_id: "PO Number"
+      item: "Item"
+      qty: "Qty"
+      unit_price: "Unit Price"
+      currency: "Currency"
+      net_amount: "Net"
+      tax_rate: "VAT %"
+      tax_amount: "VAT"
+      gross_amount: "Gross"
+      vendor_country: "Supplier Country"
+      buyer_country: "Buyer Country"
+      status: "Status"
+  contracts:
+    files: ["contracts.json"]
+    columns:
+      contract_id: "contractRef"
+      vendor_id: "supplier"
+      item: "material"
+      unit_price: "agreedPrice"
+      currency: "currency"
+      valid_from: "validFrom"
+      valid_to: "validTo"
+      payment_terms_days: "paymentTermsDays"
+  bank_transactions:
+    files: ["bank_statement_*.csv"]
+    columns:
+      txn_id: "Transaction ID"
+      entity: "Company"
+      txn_date: "Booking Date"
+      amount: "Amount"
+      currency: "Currency"
+      counterparty_name: "Counterparty"
+      counterparty_iban: "Counterparty IBAN"
+      reference: "Remittance Information"
+  gl_entries:
+    files: ["gl.csv"]
+    columns:
+      je_id: "JE Number"
+      entity: "Company"
+      posting_date: "Posting Date"
+      account: "GL Account"
+      debit: "Debit"
+      credit: "Credit"
+      currency: "Curr"
+      description: "Text"
+      counterparty_entity: "Trading Partner"
+  accounts:
+    files: ["accounts.csv"]
+    columns:
+      account: "Account"
+      name: "Description"
+      type: "Account Type"
+  fx_rates:
+    files: ["fx.csv"]
+    columns:
+      date: "Date"
+      currency: "Currency"
+      rate_to_eur: "EUR per Unit"
+  tax_rates:
+    files: ["tax_rates.csv"]
+    columns:
+      country: "Country"
+      rate: "Rate"
+      kind: "Rate Type"
