@@ -165,9 +165,13 @@ def test_seed7_pipeline_outputs(tmp_path):
 
 def test_vendor_wide_hold_only_for_high_fraud(make_ds, policy):
     ds = _pay_ds(make_ds)
-    dup = propose_payments(ds, [_f("dup_exact", ["A", "X"], evidence={"vendor_id": "V1"})],
+    ds1 = make_ds(vendors=[{"vendor_id": "V1", "entity": "E1", "iban": "DE1"}],
+                  invoices=[inv("A", "V1", "1", "2026-10-01", 100.0, status="open"),
+                            inv("E", "V1", "5", "2026-10-02", 70.0, status="open")])
+    dup = propose_payments(ds1, [_f("dup_exact", ["A", "X"], evidence={"vendor_id": "V1"})],
                            policy).set_index("invoice_id")
-    assert dup.loc["A", "tier"] == "HOLD" and dup.loc["B", "tier"] == "AUTO"
+    assert dup.loc["A", "tier"] == "HOLD" and dup.loc["A", "block_reason"] == "dup_exact"
+    assert dup.loc["E", "tier"] == "AUTO"  # unrelated invoice of the same vendor
     med = _f("iban_country_mismatch", ["T9"], "fraud", "bank_transaction", {"vendor_id": "V2"})
     assert (propose_payments(ds, [med], policy)["tier"] == "AUTO").all()
     hi = _f("iban_changed_before_payment", ["T9"], "fraud", "bank_transaction",
