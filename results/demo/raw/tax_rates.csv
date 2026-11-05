@@ -1,0 +1,12 @@
+Country,Rate,Rate Type
+ES,21%,standard
+ES,10%,reduced
+ES,4%,super-reduced
+ES,0%,zero
+DE,19%,standard
+DE,7%,reduced
+DE,0%,exempt
+FR,20%,standard
+FR,10%,reduced
+FR,"5,5%",reduced
+FR,0%,exempt
