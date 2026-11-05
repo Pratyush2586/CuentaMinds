@@ -12,3 +12,7 @@ fraud:
   split_window_days: 7
   round_amount_min: 5000
   export_soft_signals: false
+
+match:
+  price_tolerance_pct: 2
+  qty_tolerance: 0
