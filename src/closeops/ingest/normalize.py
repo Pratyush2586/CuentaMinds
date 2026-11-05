@@ -4,14 +4,16 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 
+import pandas as pd
+
 _LEGAL_SUFFIXES = {"sl", "sa", "gmbh", "ltd", "inc", "bv", "srl", "sas", "llc"}
 
 
 def _is_missing(v) -> bool:
-    if v is None:
+    if v is None or v is pd.NA or v is pd.NaT:
         return True
     try:
-        return bool(v != v)  # NaN / NaT
+        return bool(v != v)  # NaN
     except (TypeError, ValueError):
         return False
 
@@ -38,13 +40,14 @@ def parse_amount(v) -> float | None:
         dec = "." if s.rfind(".") > s.rfind(",") else ","
         thou = "," if dec == "." else "."
         s = s.replace(thou, "").replace(dec, ".")
-    elif "," in s:
-        if s.count(",") == 1 and re.fullmatch(r"\d*,\d{2}", s):
-            s = s.replace(",", ".")
+    elif "," in s or "." in s:
+        sep = "," if "," in s else "."
+        if re.fullmatch(r"\d{1,3}([,.]\d{3})+", s):
+            s = s.replace(sep, "")
+        elif s.count(sep) == 1:
+            s = s.replace(sep, ".")
         else:
-            s = s.replace(",", "")
-    elif s.count(".") > 1:
-        s = s.replace(".", "")
+            return None
     try:
         n = float(s)
     except ValueError:

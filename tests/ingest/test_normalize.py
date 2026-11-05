@@ -10,7 +10,9 @@ from closeops.ingest.normalize import (
 
 @pytest.mark.parametrize("raw,exp", [("1.234,56", 1234.56), ("1,234.56", 1234.56), ("(500.00)", -500.0),
     ("€ 1 200", 1200.0), ("-75", -75.0), ("", None), (None, None), (12.5, 12.5),
-    (float("nan"), None), ("abc", None), ("12,50", 12.5), ("1,234", 1234.0)])
+    (float("nan"), None), ("abc", None), ("12,50", 12.5), ("1,234", 1234.0),
+    ("12,5", 12.5), ("0,5", 0.5), ("1234,5678", 1234.5678), ("1.234", 1234.0),
+    ("1.234.567", 1234567.0), ("1,234,567", 1234567.0), ("12.5", 12.5), ("1,2,3", None)])
 def test_parse_amount(raw, exp): assert parse_amount(raw) == exp
 
 
@@ -30,3 +32,8 @@ def test_clean_iban_empty(): assert clean_iban(None) is None and clean_iban("  "
 def test_norm_vendor(): assert norm_vendor("ACME, S.L.") == norm_vendor("Acme SL") == "acme"
 def test_norm_vendor_keeps_slack(): assert norm_vendor("Slack") == "slack"
 def test_norm_invoice_no(): assert norm_invoice_no("INV-00123") == norm_invoice_no("inv 123") == "INV123"
+
+
+@pytest.mark.parametrize("fn,exp", [(parse_amount, None), (parse_date, None), (clean_iban, None),
+    (norm_vendor, ""), (norm_invoice_no, "")])
+def test_pd_na_is_missing(fn, exp): assert fn(pd.NA) == exp
