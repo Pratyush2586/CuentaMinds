@@ -25,6 +25,7 @@ class RunResult:
     journal_entries: pd.DataFrame = field(default_factory=pd.DataFrame)
     payments: pd.DataFrame = field(default_factory=pd.DataFrame)
     run_dir: Path = Path(".")
+    close_ready: bool | None = None  # None: no Controller sign-off was attempted
 
 
 def _new_run_dir(out_dir: Path) -> Path:
@@ -51,8 +52,6 @@ def run_close(raw_dir: Path, mapping: Path, policy_path: Path, out_dir: Path,
                      "period_end": ds.period_end.isoformat()})
 
     findings, side_tables, notes = run_checks(ds, policy)
-    if use_agents:
-        notes.append("agents not available yet")
     stage("checks", {"findings": len(findings), "notes": notes})
 
     assign_tiers(findings, policy)
@@ -60,6 +59,17 @@ def run_close(raw_dir: Path, mapping: Path, policy_path: Path, out_dir: Path,
     for f in findings:
         tiers[f.tier.value] = tiers.get(f.tier.value, 0) + 1
     stage("tiers", {"by_tier": tiers})
+
+    llm = None
+    if use_agents:
+        from closeops.agents import team  # lazy: rules-only runs never import the SDK
+        try:
+            llm = team.ClaudeLLM(ds)
+        except Exception as exc:
+            notes.append(f"agents unavailable: {exc}")
+        if llm is not None:
+            findings = team.resolve_residuals(ds, findings, policy, llm, log, notes)
+            stage("agents", {"findings": len(findings), "notes": notes})
 
     jes = propose_journal_entries(ds, findings, policy)
     payments = propose_payments(ds, findings, policy, side_tables.get("bank_matches"))
@@ -73,13 +83,21 @@ def run_close(raw_dir: Path, mapping: Path, policy_path: Path, out_dir: Path,
                    {"invoice_id": r.invoice_id, "tier": r.tier, "block_reason": r.block_reason},
                    None, r.tier)
 
+    close_ready = None
+    if llm is not None:
+        memo, close_ready = team.controller_memo(ds, findings, jes, llm)
+        (run_dir / "close_memo.md").write_text(memo.rstrip() + "\n", encoding="utf-8")
+        log.append("Controller", "controller_memo", [], {},
+                   {"close_ready": close_ready, "memo": memo}, None, None)
+
     for f in findings:
         log.append("rule", "flag", list(f.record_ids), f.evidence,
                    {"finding_id": f.finding_id, "check": f.check, "category": f.category,
                     "severity": f.severity}, f.confidence, f.tier.value)
 
     result = RunResult(dataset=ds, findings=findings, side_tables=side_tables, notes=notes,
-                       journal_entries=jes, payments=payments, run_dir=run_dir)
+                       journal_entries=jes, payments=payments, run_dir=run_dir,
+                       close_ready=close_ready)
     written = write_results(result, policy)
     stage("export", {"files": [p.name for p in written], "findings": len(findings),
                      "notes": notes})

@@ -49,7 +49,14 @@ def test_evidence_and_outputs(scored):
     assert all(f.tier is not None for f in res.findings)
 
 
-def test_agents_flag_notes(tmp_path):
+def test_agents_flag_without_credentials_is_rules_only(tmp_path, monkeypatch):
+    import closeops.agents.team as team
+
+    def no_client(ds, client=None):
+        raise RuntimeError("no credentials")
+
+    monkeypatch.setattr(team, "ClaudeLLM", no_client)
     raw = generate(tmp_path / "raw", seed=7, n_invoices=200)
     res = run_close(raw, MAPPING, POLICY, tmp_path / "r", use_agents=True)
-    assert "agents not available yet" in res.notes
+    assert "agents unavailable: no credentials" in res.notes
+    assert "agents not available yet" not in res.notes
