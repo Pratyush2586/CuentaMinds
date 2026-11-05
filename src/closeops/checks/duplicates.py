@@ -8,29 +8,14 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 
-import pandas as pd
 from rapidfuzz import fuzz
 
+from closeops.checks._util import _iso, _plain
 from closeops.ingest.normalize import clean_iban, norm_invoice_no, norm_vendor
 from closeops.model import Dataset, Finding
 
 CENT = 0.005  # amounts are equal when they differ by less than half a cent
 NEAR_TOLERANCE = 0.01
-
-
-def _plain(v):
-    """Pandas/numpy scalar -> plain python value (None for missing)."""
-    if v is None or v is pd.NA:
-        return None
-    if isinstance(v, float) and v != v:
-        return None
-    if hasattr(v, "item"):
-        v = v.item()
-    return v
-
-
-def _iso(d) -> str | None:
-    return d.isoformat() if isinstance(d, date) else None
 
 
 def _vendor_names(ds: Dataset) -> dict[str, str]:

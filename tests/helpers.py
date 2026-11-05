@@ -31,3 +31,12 @@ def txn(txn_id, txn_date: str, amount: float, iban: str, **extra) -> dict:
     }
     row.update(extra)
     return row
+
+
+def inv_tax(invoice_id, net, rate, tax, gross, vc="DE", bc="DE", vendor_id="V1", **extra) -> dict:
+    """Invoice row with tax fields; vc/bc = vendor_country/buyer_country."""
+    row = inv(invoice_id, vendor_id, f"N-{invoice_id}", "2026-10-01", gross,
+              net_amount=net, tax_rate=rate, tax_amount=tax,
+              vendor_country=vc, buyer_country=bc)
+    row.update(extra)
+    return row
