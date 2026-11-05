@@ -31,7 +31,7 @@ def score(findings: list[Finding | dict], answer_key: list[dict]) -> dict:
     """A key entry is hit when a finding has the same category and primary record id.
 
     tp is counted once per hit key entry (under the first hitting finding's check), fp per
-    non-matching finding (under its check), fn per unhit key entry (under the key's check).
+    non-matching or repeat-hit finding (under its check), fn per unhit key entry (under the key's check).
     """
     hard = [f for f in findings if _get(f, "check") not in SOFT_CHECKS]
     keys = {(k["category"], str(k["record_id"])): k for k in answer_key}
@@ -47,11 +47,11 @@ def score(findings: list[Finding | dict], answer_key: list[dict]) -> dict:
 
     for f in hard:
         ident = (_get(f, "category"), _primary_id(f))
-        if ident not in keys:
-            bump(ident[0], _get(f, "check"), 1)
-        elif ident not in hit:
+        if ident in keys and ident not in hit:
             hit.add(ident)
             bump(ident[0], _get(f, "check"), 0)
+        else:  # no key entry, or the key entry was already hit by an earlier finding
+            bump(ident[0], _get(f, "check"), 1)
     for ident, k in keys.items():
         if ident not in hit:
             bump(k["category"], k["check"], 2)

@@ -43,3 +43,11 @@ def test_category_must_match_and_pair_ids_sorted():
 
 def test_empty_is_zero_not_error():
     assert score([], [])["overall"]["f1"] == 0.0
+
+
+def test_second_finding_on_same_key_is_fp():
+    key = [{"category": "duplicate", "check": "dup_exact", "record_id": "A"}]
+    r = score([F("dup_exact", "duplicate", ["A"]), F("dup_near", "duplicate", ["A"])], key)
+    o = r["overall"]
+    assert (o["tp"], o["fp"], o["fn"]) == (1, 1, 0)
+    assert r["by_check"]["dup_near"]["fp"] == 1 and r["by_check"]["dup_exact"]["tp"] == 1
