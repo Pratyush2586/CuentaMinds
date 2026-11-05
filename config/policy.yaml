@@ -24,6 +24,10 @@ bankrec:
   fx_tolerance_pct: 1
   max_payment_lag_days: 90
 
+agents:
+  max_residuals: 40        # largest residuals by amount_eur go to the agents; the rest keep the rule result
+  wall_clock_seconds: 300  # no new agent calls after this; in-flight results still apply
+
 materiality_eur: 5000
 tiers:
   auto_min_confidence: 0.9

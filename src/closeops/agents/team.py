@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Protocol
 
@@ -26,6 +27,9 @@ MAX_TURNS = 6
 MAX_EXPLANATION = 600
 MAX_MEMO = 4000  # the Controller's explanation is the close memo
 MAX_WORKERS = 8
+DEFAULT_MAX_RESIDUALS = 40
+DEFAULT_WALL_CLOCK_SECONDS = 300
+_clock = time.monotonic  # patched in tests
 
 
 class LLM(Protocol):
@@ -101,7 +105,9 @@ class ClaudeLLM:
             if "authentication" in str(exc):
                 raise AgentsUnavailable(str(exc)) from exc
             raise
-        except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
+        except (anthropic.AuthenticationError, anthropic.PermissionDeniedError,
+                anthropic.BadRequestError, anthropic.NotFoundError) as exc:
+            # credentials, model name or request shape: every other call fails the same way
             raise AgentsUnavailable(f"{type(exc).__name__}: {exc}") from exc
         except anthropic.RateLimitError as exc:
             raise AgentError("RateLimitError") from exc
@@ -153,9 +159,14 @@ def _selected(f: Finding, policy: dict) -> bool:
             or cfg["hold_below_confidence"] <= f.confidence < cfg["auto_min_confidence"])
 
 
-def _call(llm: LLM, role: str, f: Finding, stop: threading.Event):
+_OVER_BUDGET = "skipped: wall clock"
+
+
+def _call(llm: LLM, role: str, f: Finding, stop: threading.Event, deadline: float):
     if stop.is_set():
         return None, "skipped: agents unavailable"
+    if _clock() >= deadline:  # budget spent: dispatch nothing new, keep the rules result
+        return None, _OVER_BUDGET
     try:
         ctx = {"finding_id": f.finding_id, "entity": f.entity}
         return _parse_verdict(llm.resolve(role, TRIAGE_MODEL, f.to_dict(), ctx)), None
@@ -169,12 +180,21 @@ def _call(llm: LLM, role: str, f: Finding, stop: threading.Event):
 def resolve_residuals(ds: Dataset, findings: list[Finding], policy: dict, llm: LLM,
                       log: EvidenceLog, notes: list[str] | None = None) -> list[Finding]:
     notes = notes if notes is not None else []
-    picked = sorted((f for f in findings if _selected(f, policy)), key=lambda f: f.finding_id)
+    cfg = policy.get("agents") or {}
+    limit = int(cfg.get("max_residuals", DEFAULT_MAX_RESIDUALS))
+    budget = float(cfg.get("wall_clock_seconds", DEFAULT_WALL_CLOCK_SECONDS))
+    residuals = sorted((f for f in findings if _selected(f, policy)),
+                       key=lambda f: (-(f.amount_eur or 0), f.finding_id))
+    if len(residuals) > limit:
+        notes.append(f"agents: {limit} of {len(residuals)} residuals reviewed "
+                     f"(max_residuals={limit}); {len(residuals) - limit} left to the rules")
+    picked = sorted(residuals[:limit], key=lambda f: f.finding_id)
     stop = threading.Event()  # circuit breaker: set on the first authentication failure
     unavailable: list[str] = []
+    deadline = _clock() + budget
 
     def call(f: Finding):
-        out = _call(llm, ROLES[f.category], f, stop)
+        out = _call(llm, ROLES[f.category], f, stop, deadline)
         if out[0] is None and stop.is_set() and not out[1].startswith("skipped"):
             unavailable.append(out[1])
         return out
@@ -185,11 +205,18 @@ def resolve_residuals(ds: Dataset, findings: list[Finding], policy: dict, llm: L
         notes.append(f"agents unavailable: {sorted(unavailable)[0]}")
         return findings
 
+    over_budget = sum(err == _OVER_BUDGET for _, err in outcomes)
+    if over_budget:
+        notes.append(f"agents: wall_clock_seconds={budget:g} reached; "
+                     f"{over_budget} residuals left to the rules")
+
     dismissed: set[int] = set()
     escalated: list[Finding] = []
     applied: list[tuple[Finding, str, dict | None, str | None]] = []
     for f, (verdict, err) in zip(picked, outcomes):
         role = ROLES[f.category]
+        if err == _OVER_BUDGET:
+            continue
         if verdict is None:
             notes.append(f"agent error: {role} on {f.finding_id}: {err}")
             applied.append((f, role, None, err))

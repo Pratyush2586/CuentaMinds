@@ -360,3 +360,70 @@ def test_run_close_no_credentials_single_note(tmp_path, monkeypatch):
     assert _fingerprint(res) == _fingerprint(base)
     assert not (res.run_dir / "close_memo.md").exists() and res.close_ready is None
     assert len(calls) <= team.MAX_WORKERS  # breaker stops further dispatch
+
+
+# ---- budgets and request-shape errors --------------------------------------
+
+def _status_error(cls, code):
+    import httpx2 as httpx
+    req = httpx.Request("POST", "http://x")
+    return cls("nope", response=httpx.Response(code, request=req), body=None)
+
+
+@pytest.mark.parametrize("name,code", [("BadRequestError", 400), ("NotFoundError", 404)])
+def test_bad_request_and_not_found_trip_breaker(tds, policy, tmp_path, name, code):
+    import anthropic
+    exc = _status_error(getattr(anthropic, name), code)
+    calls = []
+
+    def boom(**kw):
+        calls.append(kw)
+        raise exc
+    client = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=boom)))
+    with pytest.raises(team.AgentsUnavailable, match=name):
+        ClaudeLLM(tds, client=client).resolve("AP Clerk", "m", {}, {})
+    fs = [mk("dup_near", "duplicate", 0.7, f"R{i}") for i in range(20)]
+    before = [(f.finding_id, f.confidence) for f in fs]
+    assign_tiers(fs, policy)
+    notes = []
+    out = resolve_residuals(tds, fs, policy, ClaudeLLM(tds, client=client),
+                            EvidenceLog(tmp_path / "ev.jsonl"), notes)
+    unavailable = [n for n in notes if n.startswith("agents unavailable")]
+    assert len(unavailable) == 1 and name in unavailable[0]
+    assert not any(n.startswith("agent error") for n in notes)
+    assert [(f.finding_id, f.confidence) for f in out] == before
+
+
+def test_max_residuals_picks_largest(ds, policy, tmp_path):
+    policy = {**policy, "agents": {"max_residuals": 2, "wall_clock_seconds": 300}}
+    fs = [mk("dup_near", "duplicate", 0.7, "A", amount=10.0),
+          mk("dup_near", "duplicate", 0.7, "B", amount=900.0),
+          mk("dup_near", "duplicate", 0.7, "C", amount=50.0),
+          mk("dup_near", "duplicate", 0.7, "D", amount=50.0)]
+    llm = FakeLLM()
+    out, notes, _ = run(ds, policy, fs, llm, tmp_path)
+    assert sorted(c[2] for c in llm.calls) == ["dup_near:B", "dup_near:C"]  # tie C/D -> C
+    assert [n for n in notes if "max_residuals" in n] == [
+        "agents: 2 of 4 residuals reviewed (max_residuals=2); 2 left to the rules"]
+    assert len(out) == 4
+
+
+def test_wall_clock_budget_stops_dispatch(ds, policy, tmp_path, monkeypatch):
+    policy = {**policy, "agents": {"max_residuals": 40, "wall_clock_seconds": 300}}
+    now = [0.0]
+    monkeypatch.setattr(team, "_clock", lambda: now[0])
+    monkeypatch.setattr(team, "MAX_WORKERS", 1)
+
+    class SlowLLM(FakeLLM):
+        def resolve(self, role, model, finding, context):
+            now[0] += 100.0
+            return super().resolve(role, model, finding, context)
+    fs = [mk("dup_near", "duplicate", 0.7, f"R{i}", amount=100.0 - i) for i in range(6)]
+    llm = SlowLLM()
+    out, notes, events = run(ds, policy, fs, llm, tmp_path)
+    assert len(llm.calls) == 3
+    assert [n for n in notes if "wall_clock" in n] == [
+        "agents: wall_clock_seconds=300 reached; 3 residuals left to the rules"]
+    assert not any(n.startswith("agent error") for n in notes)
+    assert sum(f.resolved_by == "AP Clerk" for f in out) == 3
+    assert len(events) == 3
