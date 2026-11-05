@@ -1,0 +1,902 @@
+[
+  {
+    "contractRef": "CT-0001",
+    "supplier": "V10002",
+    "material": "Consulting hours",
+    "agreedPrice": 83.66,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0002",
+    "supplier": "V10002",
+    "material": "Consulting hours",
+    "agreedPrice": 79.48,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0003",
+    "supplier": "V10003",
+    "material": "Insurance premium",
+    "agreedPrice": 1660.78,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0004",
+    "supplier": "V10003",
+    "material": "Insurance premium",
+    "agreedPrice": 1577.74,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0005",
+    "supplier": "V10005",
+    "material": "Maintenance visit",
+    "agreedPrice": 341.1,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0006",
+    "supplier": "V10008",
+    "material": "Euro pallets",
+    "agreedPrice": 8.84,
+    "currency": "USD",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0007",
+    "supplier": "V10008",
+    "material": "Euro pallets",
+    "agreedPrice": 8.4,
+    "currency": "USD",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0008",
+    "supplier": "V10015",
+    "material": "Cleaning service",
+    "agreedPrice": 1373.2,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0009",
+    "supplier": "V10016",
+    "material": "Software licence",
+    "agreedPrice": 831.68,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0010",
+    "supplier": "V10018",
+    "material": "Cleaning service",
+    "agreedPrice": 323.71,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0011",
+    "supplier": "V10018",
+    "material": "Cleaning service",
+    "agreedPrice": 307.52,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0012",
+    "supplier": "V10019",
+    "material": "Steel brackets",
+    "agreedPrice": 22.21,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0013",
+    "supplier": "V10026",
+    "material": "Security service",
+    "agreedPrice": 4332.18,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0014",
+    "supplier": "V10026",
+    "material": "Security service",
+    "agreedPrice": 4115.57,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0015",
+    "supplier": "V10027",
+    "material": "Packaging film",
+    "agreedPrice": 38.15,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0016",
+    "supplier": "V10028",
+    "material": "Software licence",
+    "agreedPrice": 483.11,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0017",
+    "supplier": "V10028",
+    "material": "Software licence",
+    "agreedPrice": 458.95,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0018",
+    "supplier": "V10031",
+    "material": "Courier parcels",
+    "agreedPrice": 20.4,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0019",
+    "supplier": "V10032",
+    "material": "Software licence",
+    "agreedPrice": 27.36,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0020",
+    "supplier": "V10032",
+    "material": "Software licence",
+    "agreedPrice": 25.99,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0021",
+    "supplier": "V10036",
+    "material": "Fasteners M8",
+    "agreedPrice": 4.53,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0022",
+    "supplier": "V10037",
+    "material": "Security service",
+    "agreedPrice": 1925.87,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0023",
+    "supplier": "V10038",
+    "material": "Courier parcels",
+    "agreedPrice": 38.74,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0024",
+    "supplier": "V10038",
+    "material": "Courier parcels",
+    "agreedPrice": 36.8,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0025",
+    "supplier": "V10039",
+    "material": "Hydraulic oil",
+    "agreedPrice": 6.97,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0026",
+    "supplier": "V10039",
+    "material": "Hydraulic oil",
+    "agreedPrice": 6.62,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0027",
+    "supplier": "V10042",
+    "material": "Steel brackets",
+    "agreedPrice": 17.68,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0028",
+    "supplier": "V10049",
+    "material": "Hydraulic oil",
+    "agreedPrice": 10.08,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0029",
+    "supplier": "V10050",
+    "material": "Software licence",
+    "agreedPrice": 373.77,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0030",
+    "supplier": "V10050",
+    "material": "Software licence",
+    "agreedPrice": 355.08,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0031",
+    "supplier": "V10052",
+    "material": "Maintenance visit",
+    "agreedPrice": 289.09,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0032",
+    "supplier": "V10052",
+    "material": "Maintenance visit",
+    "agreedPrice": 274.64,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0033",
+    "supplier": "V10056",
+    "material": "Consulting hours",
+    "agreedPrice": 65.32,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0034",
+    "supplier": "V10066",
+    "material": "Maintenance visit",
+    "agreedPrice": 265.24,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0035",
+    "supplier": "V10067",
+    "material": "Training course",
+    "agreedPrice": 3116.26,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0036",
+    "supplier": "V10071",
+    "material": "Warehouse storage",
+    "agreedPrice": 23.45,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0037",
+    "supplier": "V10071",
+    "material": "Warehouse storage",
+    "agreedPrice": 22.28,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0038",
+    "supplier": "V10072",
+    "material": "Euro pallets",
+    "agreedPrice": 9.8,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0039",
+    "supplier": "V10073",
+    "material": "Fasteners M8",
+    "agreedPrice": 2.97,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0040",
+    "supplier": "V10073",
+    "material": "Fasteners M8",
+    "agreedPrice": 2.82,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0041",
+    "supplier": "V10074",
+    "material": "Cable assemblies",
+    "agreedPrice": 58.2,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0042",
+    "supplier": "V10077",
+    "material": "Packaging film",
+    "agreedPrice": 32.47,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0043",
+    "supplier": "V10077",
+    "material": "Packaging film",
+    "agreedPrice": 30.85,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0044",
+    "supplier": "V10080",
+    "material": "Packaging film",
+    "agreedPrice": 31.86,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0045",
+    "supplier": "V10081",
+    "material": "Euro pallets",
+    "agreedPrice": 15.54,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0046",
+    "supplier": "V10082",
+    "material": "Insurance premium",
+    "agreedPrice": 5626.04,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0047",
+    "supplier": "V10084",
+    "material": "Euro pallets",
+    "agreedPrice": 10.06,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0048",
+    "supplier": "V10084",
+    "material": "Euro pallets",
+    "agreedPrice": 9.56,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0049",
+    "supplier": "V10085",
+    "material": "Training course",
+    "agreedPrice": 331.43,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0050",
+    "supplier": "V10087",
+    "material": "Euro pallets",
+    "agreedPrice": 16.5,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0051",
+    "supplier": "V10091",
+    "material": "Steel brackets",
+    "agreedPrice": 16.99,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0052",
+    "supplier": "V10092",
+    "material": "Cable assemblies",
+    "agreedPrice": 47.44,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0053",
+    "supplier": "V10092",
+    "material": "Cable assemblies",
+    "agreedPrice": 45.07,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0054",
+    "supplier": "V10093",
+    "material": "IT support hours",
+    "agreedPrice": 95.55,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0055",
+    "supplier": "V10093",
+    "material": "IT support hours",
+    "agreedPrice": 90.77,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0056",
+    "supplier": "V10094",
+    "material": "Cloud hosting",
+    "agreedPrice": 1743.11,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0057",
+    "supplier": "V10094",
+    "material": "Cloud hosting",
+    "agreedPrice": 1655.95,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0058",
+    "supplier": "V10099",
+    "material": "Insurance premium",
+    "agreedPrice": 3136.87,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0059",
+    "supplier": "V10101",
+    "material": "Cleaning service",
+    "agreedPrice": 2199.17,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0060",
+    "supplier": "V10101",
+    "material": "Cleaning service",
+    "agreedPrice": 2089.21,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0061",
+    "supplier": "V10103",
+    "material": "Consulting hours",
+    "agreedPrice": 179.04,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0062",
+    "supplier": "V10103",
+    "material": "Consulting hours",
+    "agreedPrice": 170.09,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0063",
+    "supplier": "V10104",
+    "material": "Training course",
+    "agreedPrice": 934.65,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0064",
+    "supplier": "V10104",
+    "material": "Training course",
+    "agreedPrice": 887.92,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0065",
+    "supplier": "V10109",
+    "material": "Cloud hosting",
+    "agreedPrice": 856.19,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0066",
+    "supplier": "V10109",
+    "material": "Cloud hosting",
+    "agreedPrice": 813.38,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0067",
+    "supplier": "V10112",
+    "material": "Consulting hours",
+    "agreedPrice": 169.21,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0068",
+    "supplier": "V10112",
+    "material": "Consulting hours",
+    "agreedPrice": 160.75,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0069",
+    "supplier": "V10113",
+    "material": "Packaging film",
+    "agreedPrice": 18.93,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0070",
+    "supplier": "V10114",
+    "material": "Cable assemblies",
+    "agreedPrice": 71.57,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0071",
+    "supplier": "V10114",
+    "material": "Cable assemblies",
+    "agreedPrice": 67.99,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0072",
+    "supplier": "V10115",
+    "material": "Security service",
+    "agreedPrice": 1394.98,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0073",
+    "supplier": "V10115",
+    "material": "Security service",
+    "agreedPrice": 1325.23,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0074",
+    "supplier": "V10118",
+    "material": "Steel brackets",
+    "agreedPrice": 5.62,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0075",
+    "supplier": "V10118",
+    "material": "Steel brackets",
+    "agreedPrice": 5.34,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0076",
+    "supplier": "V10121",
+    "material": "Hydraulic oil",
+    "agreedPrice": 10.96,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0077",
+    "supplier": "V10122",
+    "material": "Freight FTL",
+    "agreedPrice": 1106.32,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0078",
+    "supplier": "V10122",
+    "material": "Freight FTL",
+    "agreedPrice": 1051.0,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0079",
+    "supplier": "V10126",
+    "material": "IT support hours",
+    "agreedPrice": 129.35,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0080",
+    "supplier": "V10126",
+    "material": "IT support hours",
+    "agreedPrice": 122.88,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0081",
+    "supplier": "V10128",
+    "material": "Fasteners M8",
+    "agreedPrice": 5.55,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0082",
+    "supplier": "V10128",
+    "material": "Fasteners M8",
+    "agreedPrice": 5.27,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 30
+  },
+  {
+    "contractRef": "CT-0083",
+    "supplier": "V10135",
+    "material": "Packaging film",
+    "agreedPrice": 7.06,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0084",
+    "supplier": "V10135",
+    "material": "Packaging film",
+    "agreedPrice": 6.71,
+    "currency": "EUR",
+    "validFrom": "2025-01-01",
+    "validTo": "2025-12-31",
+    "paymentTermsDays": 14
+  },
+  {
+    "contractRef": "CT-0085",
+    "supplier": "V10138",
+    "material": "Security service",
+    "agreedPrice": 1347.98,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0086",
+    "supplier": "V10017",
+    "material": "Courier parcels - framework 1",
+    "agreedPrice": 30.61,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0087",
+    "supplier": "V10005",
+    "material": "Fasteners M8 - framework 2",
+    "agreedPrice": 5.46,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0088",
+    "supplier": "V10118",
+    "material": "Insurance premium - framework 3",
+    "agreedPrice": 6135.24,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 60
+  },
+  {
+    "contractRef": "CT-0089",
+    "supplier": "V10003",
+    "material": "Courier parcels - framework 4",
+    "agreedPrice": 25.5,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 45
+  },
+  {
+    "contractRef": "CT-0090",
+    "supplier": "V10106",
+    "material": "Cable assemblies - framework 5",
+    "agreedPrice": 55.02,
+    "currency": "EUR",
+    "validFrom": "2026-01-01",
+    "validTo": "2026-12-31",
+    "paymentTermsDays": 14
+  }
+]

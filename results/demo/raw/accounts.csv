@@ -1,0 +1,17 @@
+Account,Description,Account Type
+1000,Bank EUR,bank
+1010,Bank USD,bank
+1200,Trade receivables,asset
+1300,Input VAT,asset
+1400,Prepaid expenses,asset
+1500,Intercompany receivables,intercompany receivable
+2000,Trade payables,liability
+2100,Accrued expenses,liability
+2500,Intercompany payables,intercompany payable
+4000,Revenue,revenue
+6000,Materials,expense
+6100,External services,expense
+6200,Freight and logistics,expense
+6300,IT and software,expense
+6400,Insurance and training,expense
+6800,Bank charges,expense

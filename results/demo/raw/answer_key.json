@@ -1,0 +1,452 @@
+[
+  {
+    "category": "bankrec",
+    "check": "bank_unmatched",
+    "record_id": "BK-DE01-00014"
+  },
+  {
+    "category": "bankrec",
+    "check": "bank_unmatched",
+    "record_id": "BK-DE01-00018"
+  },
+  {
+    "category": "bankrec",
+    "check": "bank_unmatched",
+    "record_id": "BK-DE01-00076"
+  },
+  {
+    "category": "bankrec",
+    "check": "bank_unmatched",
+    "record_id": "BK-ES01-00010"
+  },
+  {
+    "category": "bankrec",
+    "check": "bank_unmatched",
+    "record_id": "BK-ES01-00013"
+  },
+  {
+    "category": "bankrec",
+    "check": "bank_unmatched",
+    "record_id": "BK-ES01-00044"
+  },
+  {
+    "category": "bankrec",
+    "check": "bank_unmatched",
+    "record_id": "BK-FR01-00005"
+  },
+  {
+    "category": "bankrec",
+    "check": "bank_unmatched",
+    "record_id": "BK-FR01-00076"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_cross_entity",
+    "record_id": "D100277"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_cross_entity",
+    "record_id": "D100359"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100098"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100106"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100139"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100179"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100217"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100221"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100385"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100386"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100387"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100395"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100474"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_exact",
+    "record_id": "D100542"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_near",
+    "record_id": "D100073"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_near",
+    "record_id": "D100222"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_near",
+    "record_id": "D100223"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_near",
+    "record_id": "D100358"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_near",
+    "record_id": "D100505"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_near",
+    "record_id": "D100556"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_payment",
+    "record_id": "BK-DE01-00033"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_payment",
+    "record_id": "BK-ES01-00048"
+  },
+  {
+    "category": "duplicate",
+    "check": "dup_payment",
+    "record_id": "BK-FR01-00040"
+  },
+  {
+    "category": "fraud",
+    "check": "iban_changed_before_payment",
+    "record_id": "BK-ES01-00020"
+  },
+  {
+    "category": "fraud",
+    "check": "iban_changed_before_payment",
+    "record_id": "BK-ES01-00047"
+  },
+  {
+    "category": "fraud",
+    "check": "iban_changed_before_payment",
+    "record_id": "BK-ES01-00076"
+  },
+  {
+    "category": "fraud",
+    "check": "iban_changed_before_payment",
+    "record_id": "BK-FR01-00039"
+  },
+  {
+    "category": "fraud",
+    "check": "iban_not_in_master",
+    "record_id": "BK-DE01-00064"
+  },
+  {
+    "category": "fraud",
+    "check": "iban_not_in_master",
+    "record_id": "BK-ES01-00068"
+  },
+  {
+    "category": "fraud",
+    "check": "shared_iban",
+    "record_id": "V10085|V10139"
+  },
+  {
+    "category": "fraud",
+    "check": "split_invoices",
+    "record_id": "D100521"
+  },
+  {
+    "category": "fraud",
+    "check": "split_invoices",
+    "record_id": "D100570"
+  },
+  {
+    "category": "gl",
+    "check": "cutoff",
+    "record_id": "D100533"
+  },
+  {
+    "category": "gl",
+    "check": "cutoff",
+    "record_id": "D100536"
+  },
+  {
+    "category": "gl",
+    "check": "cutoff",
+    "record_id": "D100582"
+  },
+  {
+    "category": "gl",
+    "check": "cutoff",
+    "record_id": "D100631"
+  },
+  {
+    "category": "gl",
+    "check": "cutoff",
+    "record_id": "D100632"
+  },
+  {
+    "category": "gl",
+    "check": "cutoff",
+    "record_id": "D100633"
+  },
+  {
+    "category": "gl",
+    "check": "intercompany_mismatch",
+    "record_id": "DE01|FR01"
+  },
+  {
+    "category": "gl",
+    "check": "intercompany_mismatch",
+    "record_id": "ES01|FR01"
+  },
+  {
+    "category": "match",
+    "check": "contract_price_mismatch",
+    "record_id": "D100042"
+  },
+  {
+    "category": "match",
+    "check": "contract_price_mismatch",
+    "record_id": "D100318"
+  },
+  {
+    "category": "match",
+    "check": "contract_price_mismatch",
+    "record_id": "D100394"
+  },
+  {
+    "category": "match",
+    "check": "contract_price_mismatch",
+    "record_id": "D100489"
+  },
+  {
+    "category": "match",
+    "check": "contract_price_mismatch",
+    "record_id": "D100501"
+  },
+  {
+    "category": "match",
+    "check": "no_po",
+    "record_id": "D100177"
+  },
+  {
+    "category": "match",
+    "check": "no_po",
+    "record_id": "D100258"
+  },
+  {
+    "category": "match",
+    "check": "no_po",
+    "record_id": "D100303"
+  },
+  {
+    "category": "match",
+    "check": "no_po",
+    "record_id": "D100348"
+  },
+  {
+    "category": "match",
+    "check": "no_po",
+    "record_id": "D100441"
+  },
+  {
+    "category": "match",
+    "check": "no_po",
+    "record_id": "D100578"
+  },
+  {
+    "category": "match",
+    "check": "po_price_mismatch",
+    "record_id": "D100044"
+  },
+  {
+    "category": "match",
+    "check": "po_price_mismatch",
+    "record_id": "D100112"
+  },
+  {
+    "category": "match",
+    "check": "po_price_mismatch",
+    "record_id": "D100129"
+  },
+  {
+    "category": "match",
+    "check": "po_price_mismatch",
+    "record_id": "D100244"
+  },
+  {
+    "category": "match",
+    "check": "po_price_mismatch",
+    "record_id": "D100294"
+  },
+  {
+    "category": "match",
+    "check": "po_price_mismatch",
+    "record_id": "D100300"
+  },
+  {
+    "category": "match",
+    "check": "po_price_mismatch",
+    "record_id": "D100408"
+  },
+  {
+    "category": "match",
+    "check": "po_price_mismatch",
+    "record_id": "D100428"
+  },
+  {
+    "category": "match",
+    "check": "po_price_mismatch",
+    "record_id": "D100463"
+  },
+  {
+    "category": "match",
+    "check": "po_price_mismatch",
+    "record_id": "D100493"
+  },
+  {
+    "category": "match",
+    "check": "qty_over_received",
+    "record_id": "D100001"
+  },
+  {
+    "category": "match",
+    "check": "qty_over_received",
+    "record_id": "D100080"
+  },
+  {
+    "category": "match",
+    "check": "qty_over_received",
+    "record_id": "D100416"
+  },
+  {
+    "category": "match",
+    "check": "qty_over_received",
+    "record_id": "D100524"
+  },
+  {
+    "category": "match",
+    "check": "qty_over_received",
+    "record_id": "D100565"
+  },
+  {
+    "category": "tax",
+    "check": "tax_amount",
+    "record_id": "D100099"
+  },
+  {
+    "category": "tax",
+    "check": "tax_amount",
+    "record_id": "D100201"
+  },
+  {
+    "category": "tax",
+    "check": "tax_amount",
+    "record_id": "D100346"
+  },
+  {
+    "category": "tax",
+    "check": "tax_amount",
+    "record_id": "D100503"
+  },
+  {
+    "category": "tax",
+    "check": "tax_math",
+    "record_id": "D100100"
+  },
+  {
+    "category": "tax",
+    "check": "tax_math",
+    "record_id": "D100136"
+  },
+  {
+    "category": "tax",
+    "check": "tax_math",
+    "record_id": "D100252"
+  },
+  {
+    "category": "tax",
+    "check": "tax_math",
+    "record_id": "D100446"
+  },
+  {
+    "category": "tax",
+    "check": "tax_rate",
+    "record_id": "D100349"
+  },
+  {
+    "category": "tax",
+    "check": "tax_rate",
+    "record_id": "D100546"
+  },
+  {
+    "category": "tax",
+    "check": "tax_rate",
+    "record_id": "D100584"
+  },
+  {
+    "category": "tax",
+    "check": "tax_rate",
+    "record_id": "D100601"
+  },
+  {
+    "category": "tax",
+    "check": "tax_reverse_charge",
+    "record_id": "D100128"
+  },
+  {
+    "category": "tax",
+    "check": "tax_reverse_charge",
+    "record_id": "D100364"
+  },
+  {
+    "category": "tax",
+    "check": "tax_reverse_charge",
+    "record_id": "D100413"
+  },
+  {
+    "category": "tax",
+    "check": "tax_reverse_charge",
+    "record_id": "D100628"
+  }
+]

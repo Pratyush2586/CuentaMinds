@@ -1,0 +1,1955 @@
+[
+  {
+    "finding_id": "bank_unmatched:BK-DE01-00014",
+    "check": "bank_unmatched",
+    "category": "bankrec",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-DE01-00014",
+    "record_ids": [
+      "BK-DE01-00014"
+    ],
+    "confidence": 0.7,
+    "amount_eur": 6000.89,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_DE01.csv:15"
+    ]
+  },
+  {
+    "finding_id": "bank_unmatched:BK-DE01-00018",
+    "check": "bank_unmatched",
+    "category": "bankrec",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-DE01-00018",
+    "record_ids": [
+      "BK-DE01-00018"
+    ],
+    "confidence": 0.7,
+    "amount_eur": 5250.61,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_DE01.csv:19"
+    ]
+  },
+  {
+    "finding_id": "bank_unmatched:BK-DE01-00076",
+    "check": "bank_unmatched",
+    "category": "bankrec",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-DE01-00076",
+    "record_ids": [
+      "BK-DE01-00076"
+    ],
+    "confidence": 0.7,
+    "amount_eur": 312.31,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_DE01.csv:77"
+    ]
+  },
+  {
+    "finding_id": "bank_unmatched:BK-ES01-00010",
+    "check": "bank_unmatched",
+    "category": "bankrec",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-ES01-00010",
+    "record_ids": [
+      "BK-ES01-00010"
+    ],
+    "confidence": 0.7,
+    "amount_eur": 6848.87,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_ES01.csv:11"
+    ]
+  },
+  {
+    "finding_id": "bank_unmatched:BK-ES01-00013",
+    "check": "bank_unmatched",
+    "category": "bankrec",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-ES01-00013",
+    "record_ids": [
+      "BK-ES01-00013"
+    ],
+    "confidence": 0.7,
+    "amount_eur": 4047.93,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_ES01.csv:14"
+    ]
+  },
+  {
+    "finding_id": "bank_unmatched:BK-ES01-00044",
+    "check": "bank_unmatched",
+    "category": "bankrec",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-ES01-00044",
+    "record_ids": [
+      "BK-ES01-00044"
+    ],
+    "confidence": 0.7,
+    "amount_eur": 322.92,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_ES01.csv:45"
+    ]
+  },
+  {
+    "finding_id": "bank_unmatched:BK-FR01-00005",
+    "check": "bank_unmatched",
+    "category": "bankrec",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-FR01-00005",
+    "record_ids": [
+      "BK-FR01-00005"
+    ],
+    "confidence": 0.7,
+    "amount_eur": 1483.34,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_FR01.csv:6"
+    ]
+  },
+  {
+    "finding_id": "bank_unmatched:BK-FR01-00076",
+    "check": "bank_unmatched",
+    "category": "bankrec",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-FR01-00076",
+    "record_ids": [
+      "BK-FR01-00076"
+    ],
+    "confidence": 0.7,
+    "amount_eur": 1397.81,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_FR01.csv:77"
+    ]
+  },
+  {
+    "finding_id": "contract_price_mismatch:D100042",
+    "check": "contract_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100042",
+    "record_ids": [
+      "D100042"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 5374.72,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:43"
+    ]
+  },
+  {
+    "finding_id": "contract_price_mismatch:D100318",
+    "check": "contract_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100318",
+    "record_ids": [
+      "D100318"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 454.24,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:319"
+    ]
+  },
+  {
+    "finding_id": "contract_price_mismatch:D100394",
+    "check": "contract_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100394",
+    "record_ids": [
+      "D100394"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 177.72,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:395"
+    ]
+  },
+  {
+    "finding_id": "contract_price_mismatch:D100489",
+    "check": "contract_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100489",
+    "record_ids": [
+      "D100489"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 592.74,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:490"
+    ]
+  },
+  {
+    "finding_id": "contract_price_mismatch:D100501",
+    "check": "contract_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100501",
+    "record_ids": [
+      "D100501"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 6769.59,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:502"
+    ]
+  },
+  {
+    "finding_id": "cutoff:D100533",
+    "check": "cutoff",
+    "category": "gl",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100533",
+    "record_ids": [
+      "D100533"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 5425.0,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:534"
+    ]
+  },
+  {
+    "finding_id": "cutoff:D100536",
+    "check": "cutoff",
+    "category": "gl",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100536",
+    "record_ids": [
+      "D100536"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 506.32,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:537"
+    ]
+  },
+  {
+    "finding_id": "cutoff:D100582",
+    "check": "cutoff",
+    "category": "gl",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100582",
+    "record_ids": [
+      "D100582"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 289.09,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:583"
+    ]
+  },
+  {
+    "finding_id": "cutoff:D100631",
+    "check": "cutoff",
+    "category": "gl",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100631",
+    "record_ids": [
+      "D100631"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 3767.07,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:632"
+    ]
+  },
+  {
+    "finding_id": "cutoff:D100632",
+    "check": "cutoff",
+    "category": "gl",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100632",
+    "record_ids": [
+      "D100632"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 1109.94,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:633"
+    ]
+  },
+  {
+    "finding_id": "cutoff:D100633",
+    "check": "cutoff",
+    "category": "gl",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100633",
+    "record_ids": [
+      "D100633"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 1191.3,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:634"
+    ]
+  },
+  {
+    "finding_id": "dup_cross_entity:D100277|D100240",
+    "check": "dup_cross_entity",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100277",
+    "record_ids": [
+      "D100277",
+      "D100240"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 3829.35,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:278",
+      "invoices.csv:241"
+    ]
+  },
+  {
+    "finding_id": "dup_cross_entity:D100359|D100309",
+    "check": "dup_cross_entity",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100359",
+    "record_ids": [
+      "D100359",
+      "D100309"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 2274.73,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:360",
+      "invoices.csv:310"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100098|D100082",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100098",
+    "record_ids": [
+      "D100098",
+      "D100082"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 3602.35,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:99",
+      "invoices.csv:83"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100106|D100086",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100106",
+    "record_ids": [
+      "D100106",
+      "D100086"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 1635.5,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:107",
+      "invoices.csv:87"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100139|D100107",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100139",
+    "record_ids": [
+      "D100139",
+      "D100107"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 1555.93,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:140",
+      "invoices.csv:108"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100179|D100146",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100179",
+    "record_ids": [
+      "D100179",
+      "D100146"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 4476.04,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:180",
+      "invoices.csv:147"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100217|D100168",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100217",
+    "record_ids": [
+      "D100217",
+      "D100168"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 2176.52,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:218",
+      "invoices.csv:169"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100221|D100208",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100221",
+    "record_ids": [
+      "D100221",
+      "D100208"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 1817.51,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:222",
+      "invoices.csv:209"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100385|D100362",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100385",
+    "record_ids": [
+      "D100385",
+      "D100362"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 3746.4,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:386",
+      "invoices.csv:363"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100386|D100353",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100386",
+    "record_ids": [
+      "D100386",
+      "D100353"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 3902.3,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:387",
+      "invoices.csv:354"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100387|D100355",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100387",
+    "record_ids": [
+      "D100387",
+      "D100355"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 2927.06,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:388",
+      "invoices.csv:356"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100395|D100381",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100395",
+    "record_ids": [
+      "D100395",
+      "D100381"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 4241.95,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:396",
+      "invoices.csv:382"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100474|D100467",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100474",
+    "record_ids": [
+      "D100474",
+      "D100467"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 926.84,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:475",
+      "invoices.csv:468"
+    ]
+  },
+  {
+    "finding_id": "dup_exact:D100542|D100526",
+    "check": "dup_exact",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100542",
+    "record_ids": [
+      "D100542",
+      "D100526"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 4221.66,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:543",
+      "invoices.csv:527"
+    ]
+  },
+  {
+    "finding_id": "dup_near:D100073|D100030",
+    "check": "dup_near",
+    "category": "duplicate",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100073",
+    "record_ids": [
+      "D100073",
+      "D100030"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 2288.94,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:74",
+      "invoices.csv:31"
+    ]
+  },
+  {
+    "finding_id": "dup_near:D100222|D100184",
+    "check": "dup_near",
+    "category": "duplicate",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100222",
+    "record_ids": [
+      "D100222",
+      "D100184"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 3274.6,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:223",
+      "invoices.csv:185"
+    ]
+  },
+  {
+    "finding_id": "dup_near:D100223|D100187",
+    "check": "dup_near",
+    "category": "duplicate",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100223",
+    "record_ids": [
+      "D100223",
+      "D100187"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 1688.37,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:224",
+      "invoices.csv:188"
+    ]
+  },
+  {
+    "finding_id": "dup_near:D100358|D100330",
+    "check": "dup_near",
+    "category": "duplicate",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100358",
+    "record_ids": [
+      "D100358",
+      "D100330"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 2685.83,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:359",
+      "invoices.csv:331"
+    ]
+  },
+  {
+    "finding_id": "dup_near:D100505|D100478",
+    "check": "dup_near",
+    "category": "duplicate",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100505",
+    "record_ids": [
+      "D100505",
+      "D100478"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 2393.28,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:506",
+      "invoices.csv:479"
+    ]
+  },
+  {
+    "finding_id": "dup_near:D100556|D100510",
+    "check": "dup_near",
+    "category": "duplicate",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100556",
+    "record_ids": [
+      "D100556",
+      "D100510"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 1458.39,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:557",
+      "invoices.csv:511"
+    ]
+  },
+  {
+    "finding_id": "dup_payment:BK-DE01-00033|BK-DE01-00023",
+    "check": "dup_payment",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "DE01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-DE01-00033",
+    "record_ids": [
+      "BK-DE01-00033",
+      "BK-DE01-00023"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 1054.74,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_DE01.csv:34",
+      "bank_statement_DE01.csv:24"
+    ]
+  },
+  {
+    "finding_id": "dup_payment:BK-ES01-00048|BK-ES01-00040",
+    "check": "dup_payment",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-ES01-00048",
+    "record_ids": [
+      "BK-ES01-00048",
+      "BK-ES01-00040"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 392.4,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_ES01.csv:49",
+      "bank_statement_ES01.csv:41"
+    ]
+  },
+  {
+    "finding_id": "dup_payment:BK-FR01-00040|BK-FR01-00033",
+    "check": "dup_payment",
+    "category": "duplicate",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-FR01-00040",
+    "record_ids": [
+      "BK-FR01-00040",
+      "BK-FR01-00033"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 1998.47,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_FR01.csv:41",
+      "bank_statement_FR01.csv:34"
+    ]
+  },
+  {
+    "finding_id": "iban_changed_before_payment:BK-ES01-00020",
+    "check": "iban_changed_before_payment",
+    "category": "fraud",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-ES01-00020",
+    "record_ids": [
+      "BK-ES01-00020"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 381.93,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_ES01.csv:21"
+    ]
+  },
+  {
+    "finding_id": "iban_changed_before_payment:BK-ES01-00047",
+    "check": "iban_changed_before_payment",
+    "category": "fraud",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-ES01-00047",
+    "record_ids": [
+      "BK-ES01-00047"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 2905.55,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_ES01.csv:48"
+    ]
+  },
+  {
+    "finding_id": "iban_changed_before_payment:BK-ES01-00076",
+    "check": "iban_changed_before_payment",
+    "category": "fraud",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-ES01-00076",
+    "record_ids": [
+      "BK-ES01-00076"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 13581.25,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_ES01.csv:77"
+    ]
+  },
+  {
+    "finding_id": "iban_changed_before_payment:BK-FR01-00039",
+    "check": "iban_changed_before_payment",
+    "category": "fraud",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-FR01-00039",
+    "record_ids": [
+      "BK-FR01-00039"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 1546.44,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_FR01.csv:40"
+    ]
+  },
+  {
+    "finding_id": "iban_not_in_master:BK-DE01-00064",
+    "check": "iban_not_in_master",
+    "category": "fraud",
+    "severity": "high",
+    "entity": "DE01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-DE01-00064",
+    "record_ids": [
+      "BK-DE01-00064"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 1865.48,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_DE01.csv:65"
+    ]
+  },
+  {
+    "finding_id": "iban_not_in_master:BK-ES01-00068",
+    "check": "iban_not_in_master",
+    "category": "fraud",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "bank_transaction",
+    "primary_record_id": "BK-ES01-00068",
+    "record_ids": [
+      "BK-ES01-00068"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 3290.63,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "bank_statement_ES01.csv:69"
+    ]
+  },
+  {
+    "finding_id": "intercompany_mismatch:DE01|FR01",
+    "check": "intercompany_mismatch",
+    "category": "gl",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "entity_pair",
+    "primary_record_id": "DE01",
+    "record_ids": [
+      "DE01",
+      "FR01"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 5889.93,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "gl.csv:2153",
+      "gl.csv:2150",
+      "gl.csv:2154"
+    ]
+  },
+  {
+    "finding_id": "intercompany_mismatch:ES01|FR01",
+    "check": "intercompany_mismatch",
+    "category": "gl",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "entity_pair",
+    "primary_record_id": "ES01",
+    "record_ids": [
+      "ES01",
+      "FR01"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 726.19,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "gl.csv:2142",
+      "gl.csv:2146",
+      "gl.csv:2145",
+      "gl.csv:2149"
+    ]
+  },
+  {
+    "finding_id": "no_po:D100177",
+    "check": "no_po",
+    "category": "match",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100177",
+    "record_ids": [
+      "D100177"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 2950.69,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:178"
+    ]
+  },
+  {
+    "finding_id": "no_po:D100258",
+    "check": "no_po",
+    "category": "match",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100258",
+    "record_ids": [
+      "D100258"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 191.2,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:259"
+    ]
+  },
+  {
+    "finding_id": "no_po:D100303",
+    "check": "no_po",
+    "category": "match",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100303",
+    "record_ids": [
+      "D100303"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 1991.58,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:304"
+    ]
+  },
+  {
+    "finding_id": "no_po:D100348",
+    "check": "no_po",
+    "category": "match",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100348",
+    "record_ids": [
+      "D100348"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 1513.95,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:349"
+    ]
+  },
+  {
+    "finding_id": "no_po:D100441",
+    "check": "no_po",
+    "category": "match",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100441",
+    "record_ids": [
+      "D100441"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 601.85,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:442"
+    ]
+  },
+  {
+    "finding_id": "no_po:D100578",
+    "check": "no_po",
+    "category": "match",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100578",
+    "record_ids": [
+      "D100578"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 823.77,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:579"
+    ]
+  },
+  {
+    "finding_id": "po_price_mismatch:D100044",
+    "check": "po_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100044",
+    "record_ids": [
+      "D100044"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 2238.33,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:45"
+    ]
+  },
+  {
+    "finding_id": "po_price_mismatch:D100112",
+    "check": "po_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100112",
+    "record_ids": [
+      "D100112"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 3657.26,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:113"
+    ]
+  },
+  {
+    "finding_id": "po_price_mismatch:D100129",
+    "check": "po_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100129",
+    "record_ids": [
+      "D100129"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 3050.99,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:130"
+    ]
+  },
+  {
+    "finding_id": "po_price_mismatch:D100244",
+    "check": "po_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100244",
+    "record_ids": [
+      "D100244"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 1655.59,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:245"
+    ]
+  },
+  {
+    "finding_id": "po_price_mismatch:D100294",
+    "check": "po_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100294",
+    "record_ids": [
+      "D100294"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 7394.38,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:295"
+    ]
+  },
+  {
+    "finding_id": "po_price_mismatch:D100300",
+    "check": "po_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100300",
+    "record_ids": [
+      "D100300"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 4620.6,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:301"
+    ]
+  },
+  {
+    "finding_id": "po_price_mismatch:D100408",
+    "check": "po_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100408",
+    "record_ids": [
+      "D100408"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 2489.57,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:409"
+    ]
+  },
+  {
+    "finding_id": "po_price_mismatch:D100428",
+    "check": "po_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100428",
+    "record_ids": [
+      "D100428"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 20335.44,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:429"
+    ]
+  },
+  {
+    "finding_id": "po_price_mismatch:D100463",
+    "check": "po_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100463",
+    "record_ids": [
+      "D100463"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 5398.76,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:464"
+    ]
+  },
+  {
+    "finding_id": "po_price_mismatch:D100493",
+    "check": "po_price_mismatch",
+    "category": "match",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100493",
+    "record_ids": [
+      "D100493"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 18320.61,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:494"
+    ]
+  },
+  {
+    "finding_id": "qty_over_received:D100001",
+    "check": "qty_over_received",
+    "category": "match",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100001",
+    "record_ids": [
+      "D100001"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 5442.82,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:2"
+    ]
+  },
+  {
+    "finding_id": "qty_over_received:D100080",
+    "check": "qty_over_received",
+    "category": "match",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100080",
+    "record_ids": [
+      "D100080"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 3000.15,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:81"
+    ]
+  },
+  {
+    "finding_id": "qty_over_received:D100416",
+    "check": "qty_over_received",
+    "category": "match",
+    "severity": "high",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100416",
+    "record_ids": [
+      "D100416"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 2027.61,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:417"
+    ]
+  },
+  {
+    "finding_id": "qty_over_received:D100524",
+    "check": "qty_over_received",
+    "category": "match",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100524",
+    "record_ids": [
+      "D100524"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 851.76,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:525"
+    ]
+  },
+  {
+    "finding_id": "qty_over_received:D100565",
+    "check": "qty_over_received",
+    "category": "match",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100565",
+    "record_ids": [
+      "D100565"
+    ],
+    "confidence": 0.9,
+    "amount_eur": 3627.82,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:566"
+    ]
+  },
+  {
+    "finding_id": "shared_iban:V10085|V10139",
+    "check": "shared_iban",
+    "category": "fraud",
+    "severity": "high",
+    "entity": "DE01",
+    "record_type": "vendor",
+    "primary_record_id": "V10085",
+    "record_ids": [
+      "V10085",
+      "V10139"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 0.0,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "vendors.csv:98",
+      "vendors.csv:152"
+    ]
+  },
+  {
+    "finding_id": "split_invoices:D100521|D100506|D100484",
+    "check": "split_invoices",
+    "category": "fraud",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100521",
+    "record_ids": [
+      "D100521",
+      "D100506",
+      "D100484"
+    ],
+    "confidence": 0.7,
+    "amount_eur": 11892.17,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:522",
+      "invoices.csv:507",
+      "invoices.csv:485"
+    ]
+  },
+  {
+    "finding_id": "split_invoices:D100570|D100557|D100543",
+    "check": "split_invoices",
+    "category": "fraud",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100570",
+    "record_ids": [
+      "D100570",
+      "D100557",
+      "D100543"
+    ],
+    "confidence": 0.7,
+    "amount_eur": 11089.64,
+    "tier": "HOLD",
+    "requires_human_review": true,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:571",
+      "invoices.csv:558",
+      "invoices.csv:544"
+    ]
+  },
+  {
+    "finding_id": "tax_amount:D100099",
+    "check": "tax_amount",
+    "category": "tax",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100099",
+    "record_ids": [
+      "D100099"
+    ],
+    "confidence": 0.97,
+    "amount_eur": 2.2,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:100"
+    ]
+  },
+  {
+    "finding_id": "tax_amount:D100201",
+    "check": "tax_amount",
+    "category": "tax",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100201",
+    "record_ids": [
+      "D100201"
+    ],
+    "confidence": 0.97,
+    "amount_eur": 6.94,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:202"
+    ]
+  },
+  {
+    "finding_id": "tax_amount:D100346",
+    "check": "tax_amount",
+    "category": "tax",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100346",
+    "record_ids": [
+      "D100346"
+    ],
+    "confidence": 0.97,
+    "amount_eur": 10.94,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:347"
+    ]
+  },
+  {
+    "finding_id": "tax_amount:D100503",
+    "check": "tax_amount",
+    "category": "tax",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100503",
+    "record_ids": [
+      "D100503"
+    ],
+    "confidence": 0.97,
+    "amount_eur": 8.46,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:504"
+    ]
+  },
+  {
+    "finding_id": "tax_math:D100100",
+    "check": "tax_math",
+    "category": "tax",
+    "severity": "high",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100100",
+    "record_ids": [
+      "D100100"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 1.42,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:101"
+    ]
+  },
+  {
+    "finding_id": "tax_math:D100136",
+    "check": "tax_math",
+    "category": "tax",
+    "severity": "high",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100136",
+    "record_ids": [
+      "D100136"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 9.03,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:137"
+    ]
+  },
+  {
+    "finding_id": "tax_math:D100252",
+    "check": "tax_math",
+    "category": "tax",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100252",
+    "record_ids": [
+      "D100252"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 25.92,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:253"
+    ]
+  },
+  {
+    "finding_id": "tax_math:D100446",
+    "check": "tax_math",
+    "category": "tax",
+    "severity": "high",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100446",
+    "record_ids": [
+      "D100446"
+    ],
+    "confidence": 0.99,
+    "amount_eur": 31.84,
+    "tier": "AUTO",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:447"
+    ]
+  },
+  {
+    "finding_id": "tax_rate:D100349",
+    "check": "tax_rate",
+    "category": "tax",
+    "severity": "medium",
+    "entity": "DE01",
+    "record_type": "invoice",
+    "primary_record_id": "D100349",
+    "record_ids": [
+      "D100349"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 14.7,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:350"
+    ]
+  },
+  {
+    "finding_id": "tax_rate:D100546",
+    "check": "tax_rate",
+    "category": "tax",
+    "severity": "medium",
+    "entity": "FR01",
+    "record_type": "invoice",
+    "primary_record_id": "D100546",
+    "record_ids": [
+      "D100546"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 11.21,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:547"
+    ]
+  },
+  {
+    "finding_id": "tax_rate:D100584",
+    "check": "tax_rate",
+    "category": "tax",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100584",
+    "record_ids": [
+      "D100584"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 84.09,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:585"
+    ]
+  },
+  {
+    "finding_id": "tax_rate:D100601",
+    "check": "tax_rate",
+    "category": "tax",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100601",
+    "record_ids": [
+      "D100601"
+    ],
+    "confidence": 0.85,
+    "amount_eur": 329.59,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:602"
+    ]
+  },
+  {
+    "finding_id": "tax_reverse_charge:D100128",
+    "check": "tax_reverse_charge",
+    "category": "tax",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100128",
+    "record_ids": [
+      "D100128"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 223.87,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:129"
+    ]
+  },
+  {
+    "finding_id": "tax_reverse_charge:D100364",
+    "check": "tax_reverse_charge",
+    "category": "tax",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100364",
+    "record_ids": [
+      "D100364"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 698.68,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:365"
+    ]
+  },
+  {
+    "finding_id": "tax_reverse_charge:D100413",
+    "check": "tax_reverse_charge",
+    "category": "tax",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100413",
+    "record_ids": [
+      "D100413"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 313.18,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:414"
+    ]
+  },
+  {
+    "finding_id": "tax_reverse_charge:D100628",
+    "check": "tax_reverse_charge",
+    "category": "tax",
+    "severity": "medium",
+    "entity": "ES01",
+    "record_type": "invoice",
+    "primary_record_id": "D100628",
+    "record_ids": [
+      "D100628"
+    ],
+    "confidence": 0.8,
+    "amount_eur": 741.5,
+    "tier": "AUTO_NOTE",
+    "requires_human_review": false,
+    "explanation": "",
+    "resolved_by": "rule",
+    "source_refs": [
+      "invoices.csv:629"
+    ]
+  }
+]

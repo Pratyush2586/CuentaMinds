@@ -1,0 +1,66 @@
+duplicates:
+  date_window_days: 7
+  invoice_no_similarity: 85
+  payment_window_days: 3
+tax:
+  tolerance: 0.02
+  eu_countries:
+  - AT
+  - BE
+  - BG
+  - HR
+  - CY
+  - CZ
+  - DK
+  - EE
+  - FI
+  - FR
+  - DE
+  - GR
+  - HU
+  - IE
+  - IT
+  - LV
+  - LT
+  - LU
+  - MT
+  - NL
+  - PL
+  - PT
+  - RO
+  - SK
+  - SI
+  - ES
+  - SE
+fraud:
+  iban_change_window_days: 30
+  approval_limit: 10000
+  split_window_days: 7
+  round_amount_min: 5000
+  export_soft_signals: false
+match:
+  price_tolerance_pct: 2
+  qty_tolerance: 0
+bankrec:
+  date_window_days: 5
+  max_group: 4
+  amount_tolerance: 0.01
+  fx_tolerance_pct: 1
+  max_payment_lag_days: 90
+materiality_eur: 5000
+tiers:
+  auto_min_confidence: 0.9
+  hold_below_confidence: 0.6
+  auto_categories:
+  - duplicate
+  - tax
+  - match
+  - bankrec
+accounts:
+  ap: '4000'
+  vat_input: '4720'
+  expense_default: '6000'
+  accrued: '4110'
+  deferred: '4800'
+  suspense: '5550'
+  bank: '5720'
