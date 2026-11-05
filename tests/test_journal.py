@@ -208,3 +208,26 @@ def test_unknown_status_never_auto(make_ds, policy):
     assert p.loc["B", "tier"] == "HOLD" and p.loc["B", "block_reason"] == "status_unknown"
     no_bm = propose_payments(ds, [], policy)
     assert set(no_bm["block_reason"]) == {"status_unknown"}
+
+
+def test_block_keys_are_namespaced(make_ds, policy):
+    # a bank txn id equal to an invoice id must not hold that invoice
+    hi = _f("iban_not_in_master", ["A"], "fraud", "bank_transaction", {}, severity="high")
+    p = propose_payments(_pay_ds(make_ds), [hi], policy).set_index("invoice_id")
+    assert p.loc["A", "tier"] == "AUTO"
+    vendor = _f("shared_iban", ["V1"], "fraud", "vendor", {}, severity="high")
+    p = propose_payments(_pay_ds(make_ds), [vendor], policy).set_index("invoice_id")
+    assert p.loc["A", "block_reason"] == "shared_iban" and p.loc["B", "tier"] == "AUTO"
+
+
+def test_duplicate_holds_only_later_copy(make_ds, policy):
+    p = propose_payments(_pay_ds(make_ds), [_f("dup_exact", ["A", "B"])], policy).set_index("invoice_id")
+    assert p.loc["A", "block_reason"] == "dup_exact"
+    assert p.loc["B", "tier"] == "AUTO"  # the earlier original stays payable
+
+
+def test_negative_gross_without_net_skipped(make_ds, policy):
+    ds = make_ds(vendors=[{"vendor_id": "V1", "entity": "E1", "iban": "DE1"}],
+                 invoices=[inv("A", "V1", "1", "2026-10-01", -50.0, net_amount=None, status="open"),
+                           inv("B", "V1", "2", "2026-10-01", 50.0, net_amount=None, status="open")])
+    assert list(propose_payments(ds, [], policy)["invoice_id"]) == ["B"]

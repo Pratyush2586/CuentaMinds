@@ -153,20 +153,26 @@ def _iban_changed_vendors(ds: Dataset, policy: dict) -> set[str]:
     return out
 
 
-def _finding_hits(findings: list[Finding]) -> tuple[dict[str, str], dict[str, str]]:
-    """Index findings: fraud/duplicate by invoice or vendor id (block), match/tax by invoice id."""
-    block: dict[str, str] = {}
-    inv_issue: dict[str, str] = {}
+Key = tuple[str, str]  # (record_type, id): ids from different tables never collide
+
+
+def _finding_hits(findings: list[Finding]) -> tuple[dict[Key, str], dict[Key, str]]:
+    """Index findings: fraud/duplicate by record or vendor (block), match/tax by record."""
+    block: dict[Key, str] = {}
+    inv_issue: dict[Key, str] = {}
     for f in sorted(findings, key=lambda x: x.finding_id):
         if f.category in ("fraud", "duplicate"):
-            keys = list(f.record_ids)
+            # a duplicate holds only the later copy (record_ids[0]), never the original
+            ids = f.record_ids[:1] if f.category == "duplicate" else f.record_ids
+            keys = [(f.record_type, str(k)) for k in ids]
             if f.category == "fraud" and f.severity == "high" and f.evidence.get("vendor_id"):
-                keys.append(f.evidence["vendor_id"])  # compromised bank details: vendor-wide hold
+                # compromised bank details: vendor-wide hold
+                keys.append(("vendor", str(f.evidence["vendor_id"])))
             for k in keys:
-                block.setdefault(str(k), f.check)
+                block.setdefault(k, f.check)
         elif f.category in ("match", "tax"):
             for k in f.record_ids:
-                inv_issue.setdefault(str(k), f.check)
+                inv_issue.setdefault((f.record_type, str(k)), f.check)
     return block, inv_issue
 
 
@@ -184,7 +190,7 @@ def propose_payments(ds: Dataset, findings: list[Finding], policy: dict,
     rows = []
     for r in inv.to_dict("records"):
         net, gross = _num(r["net_amount"]), _num(r["gross_amount"])
-        if gross is None or (net is not None and net < 0):
+        if gross is None or gross < 0 or (net is not None and net < 0):  # credit notes
             continue
         iid, vid, cur = str(r["invoice_id"]), str(r["vendor_id"]), _cur(r["currency"])
         idate = _plain(r["invoice_date"])
@@ -193,10 +199,10 @@ def propose_payments(ds: Dataset, findings: list[Finding], policy: dict,
         rate = fx.rate(cur, ds.period_end)
         if vid in changed:
             reason = "iban_changed"
-        elif iid in block or vid in block:
-            reason = block.get(iid) or block[vid]
-        elif iid in inv_issue:
-            reason = inv_issue[iid]
+        elif ("invoice", iid) in block or ("vendor", vid) in block:
+            reason = block.get(("invoice", iid)) or block[("vendor", vid)]
+        elif ("invoice", iid) in inv_issue:
+            reason = inv_issue[("invoice", iid)]
         elif not status_known:
             reason = "status_unknown"
         elif not iban:

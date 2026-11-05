@@ -92,3 +92,10 @@ def test_evidence_is_json_plain_and_output_sorted(make_ds, policy):
 
 def test_no_tables_returns_empty(make_ds, policy):
     assert check_duplicates(make_ds(), policy) == []
+
+
+def test_null_vendor_ids_are_not_the_same_vendor(make_ds, policy):
+    from closeops.checks.duplicates import check_duplicates
+    ds = make_ds(invoices=[inv("I1", None, "RE-1", "2026-10-01", 100.0),
+                           inv("I2", None, "RE-1", "2026-10-02", 100.0)])
+    assert check_duplicates(ds, policy) == []

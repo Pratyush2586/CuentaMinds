@@ -38,7 +38,7 @@ def _invoice_records(ds: Dataset) -> list[dict]:
         net, gross = r["net_amount"], r["gross_amount"]
         if gross is None or float(gross) < 0 or (net is not None and float(net) < 0):
             continue  # credit notes / unusable rows
-        vid = str(r["vendor_id"])
+        vid = None if r["vendor_id"] is None else str(r["vendor_id"])
         out.append({
             "id": str(r["invoice_id"]),
             "entity": str(r["entity"]),
@@ -59,7 +59,8 @@ def _order(r: dict):
 
 
 def _same_vendor(a: dict, b: dict) -> bool:
-    return a["vendor_id"] == b["vendor_id"] or (
+    """Same vendor id (a missing id never matches) or same normalised vendor name."""
+    return (a["vendor_id"] is not None and a["vendor_id"] == b["vendor_id"]) or (
         a["vendor_name"] != "" and a["vendor_name"] == b["vendor_name"])
 
 
@@ -73,7 +74,8 @@ def _classify(a: dict, b: dict, window: int, similarity: float) -> tuple[str, di
     ratio = 100.0 if same_no else (fuzz.ratio(a["no"], b["no"]) if a["no"] and b["no"] else 0.0)
     is_near = (gross_diff <= NEAR_TOLERANCE and days is not None
                and days <= window and ratio >= similarity)
-    is_exact = a["vendor_id"] == b["vendor_id"] and same_no and gross_diff < CENT
+    is_exact = (a["vendor_id"] is not None and a["vendor_id"] == b["vendor_id"]
+                and same_no and gross_diff < CENT)
     extra = {"gross_diff": round(gross_diff, 2), "days_apart": days,
              "invoice_no_similarity": round(float(ratio), 1)}
     if a["entity"] != b["entity"]:
