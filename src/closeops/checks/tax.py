@@ -51,15 +51,18 @@ def _rate_book(ds: Dataset) -> dict[str, dict]:
         return book
     for r in ds.table("tax_rates").to_dict("records"):
         country, rate = _text(r["country"]), _fraction(_num(r["rate"]))
-        if country is None or rate is None:
+        if country is None:
             continue
         kind = (_text(r["kind"]) or "").lower()
         e = book.setdefault(country, {"rates": set(), "standard": None, "zero_ok": False})
+        if kind in ZERO_KINDS:  # a zero/exempt row counts even without a numeric rate
+            e["zero_ok"] = True
+            e["rates"].add(0.0)
+        if rate is None:
+            continue
         e["rates"].add(rate)
         if kind == "standard" and e["standard"] is None:
             e["standard"] = rate
-        if kind in ZERO_KINDS:
-            e["zero_ok"] = True
     return book
 
 
@@ -94,7 +97,8 @@ def _evaluate(r: dict, tol: float, eu: set[str], book: dict, no_vat: set[str] | 
         if (vc is not None and vc == bc and abs(tax) <= tol and standard and standard > 0
                 and net is not None and not zero_ok):
             return "tax_reverse_charge", net * standard
-    if country and not intra_eu and rate is not None:
+    non_eu_untaxed = vc is not None and vc not in eu and tax is not None and tax <= tol
+    if country and not intra_eu and not non_eu_untaxed and rate is not None:
         if not any(abs(rate - x) <= RATE_EPS for x in country["rates"]):
             return "tax_rate", (net * standard if net is not None and standard is not None else None)
     if no_vat is not None and r["vendor_id"] in no_vat and tax is not None and tax > tol:

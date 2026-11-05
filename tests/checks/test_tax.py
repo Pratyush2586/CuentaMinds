@@ -173,3 +173,14 @@ def test_evidence_json_plain_and_sorted(make_ds, policy):
 
 def test_no_tables_returns_empty(make_ds, policy):
     assert check_tax(make_ds(), policy) == []
+
+
+def test_exempt_row_without_numeric_rate_accepts_zero(make_ds, policy):
+    rates = ES + [{"country": "ES", "rate": None, "kind": "exempt"}]
+    row = inv_tax("I1", net=100, rate=0, tax=0, gross=100, vc="ES", bc="ES")
+    assert check_tax(make_ds(invoices=[row], tax_rates=rates), policy) == []
+
+
+def test_non_eu_vendor_zero_tax_not_flagged(make_ds, policy):
+    row = inv_tax("I1", net=100, rate=0, tax=0, gross=100, vc="US", bc="ES")
+    assert check_tax(make_ds(invoices=[row], tax_rates=ES), policy) == []
