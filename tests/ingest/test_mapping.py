@@ -118,3 +118,17 @@ def test_json_ids_not_floated(tmp_path):
     (tmp_path / "i.json").write_text(json.dumps([{"invoice_id": 1, "x": 5}, {"invoice_id": 2}]))
     m = _mapping(tmp_path, "  invoices:\n    files: ['i.json']\n    columns: {invoice_id: invoice_id}\n")
     assert list(load_dataset(tmp_path, m).table("invoices").invoice_id) == ["1", "2"]
+
+
+def test_terms_and_received_qty_parse_as_numbers(tmp_path):
+    (tmp_path / "c.csv").write_text("id,terms\nC1,Net 30\nC2,14\nC3,soon\n", encoding="utf-8")
+    (tmp_path / "g.csv").write_text("gr,po,q\nG1,P1,3 pcs\nG2,P1,junk\n", encoding="utf-8")
+    m = _mapping(tmp_path, "  contracts:\n    files: ['c.csv']\n"
+                           "    columns: {contract_id: id, payment_terms_days: terms}\n"
+                           "  goods_receipts:\n    files: ['g.csv']\n"
+                           "    columns: {gr_id: gr, po_id: po, qty_received: q}\n")
+    ds = load_dataset(tmp_path, m)
+    terms = list(ds.table("contracts")["payment_terms_days"])
+    assert terms[:2] == [30.0, 14.0] and pd.isna(terms[2])
+    q = list(ds.table("goods_receipts")["qty_received"])
+    assert q[0] == 3.0 and pd.isna(q[1])

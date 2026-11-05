@@ -89,8 +89,18 @@ def run_checks(ds: Dataset, policy: dict) -> tuple[list[Finding], dict[str, pd.D
         tables[key] = out if out is not None else pd.DataFrame()
     tables.setdefault("bank_matches", pd.DataFrame())
 
-    fx = FxRates(ds)
+    fx = guarded(FxRates, ds)
+    failed = 0
     for f in findings:
-        _fill_amount(f, ds, fx)
+        try:
+            if fx is not None:
+                _fill_amount(f, ds, fx)
+        except Exception as exc:  # one bad amount cell must not drop the findings
+            failed += 1
+            if failed == 1:
+                log.exception("amount fill failed for %s", f.finding_id)
+                first = f"{type(exc).__name__}: {exc}"
+    if failed:
+        notes.append(f"error in _fill_amount: {failed} findings without amount_eur ({first})")
     findings.sort(key=lambda f: f.finding_id)
     return findings, {k: tables[k] for k in _SIDE_TABLES}, notes

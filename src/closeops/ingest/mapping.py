@@ -15,7 +15,8 @@ from closeops.model import CANONICAL, PROVENANCE, Dataset
 log = logging.getLogger("closeops.ingest")
 
 AMOUNT_COLS = {"qty", "unit_price", "net_amount", "tax_rate", "tax_amount", "gross_amount",
-               "amount", "debit", "credit", "rate_to_eur", "rate"}
+               "amount", "debit", "credit", "rate_to_eur", "rate", "qty_received",
+               "payment_terms_days"}
 DATE_COLS = {"changed_at", "valid_from", "valid_to", "service_period_end", "date"}
 IBAN_COLS = {"iban", "counterparty_iban"}
 
