@@ -18,7 +18,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 
-from closeops.checks._util import _iso
+from closeops.checks._util import FxRates as _Fx, _iso
 from closeops.checks.fraud import _iban, _records, _s, _Vendors
 from closeops.model import Dataset, Finding
 
@@ -85,26 +85,6 @@ def _no_pattern(invoice_no) -> re.Pattern | None:
     prefix, digits = s[: m.start()], m.group().lstrip("0") or "0"
     lead = "" if prefix else r"(?<!\d)"
     return re.compile(lead + re.escape(prefix) + "0*" + digits + r"(?!\d)")
-
-
-class _Fx:
-    def __init__(self, ds: Dataset):
-        rows: dict[str, list[tuple[date, float]]] = defaultdict(list)
-        for r in _records(ds, "fx_rates"):
-            d, rate = r["date"], _f(r["rate_to_eur"])
-            if isinstance(d, date) and rate is not None:
-                rows[_cur(r["currency"])].append((d, rate))
-        self.rates = {c: sorted(v) for c, v in rows.items()}
-
-    def rate(self, currency: str, d: date | None) -> float | None:
-        """rate_to_eur on the nearest date on or before `d`; EUR is 1.0 when not listed."""
-        series = self.rates.get(currency)
-        if not series:
-            return 1.0 if currency == "EUR" else None
-        if d is None:
-            return None
-        i = bisect_right(series, (d, float("inf")))
-        return series[i - 1][1] if i else None
 
 
 def _equal(a: float, b: float, tol: float) -> bool:
