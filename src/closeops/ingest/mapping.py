@@ -52,7 +52,11 @@ def _load_table(raw_dir: Path, name: str, spec: dict) -> pd.DataFrame | None:
     canon = CANONICAL[name]
     parts = []
     for path in files:
-        raw = read_raw(path, spec.get("sheet"))
+        try:
+            raw = read_raw(path, spec.get("sheet"))
+        except Exception as exc:
+            log.warning("table %s: skipping file %s: %s", name, path.name, exc)
+            continue
         raw = raw.loc[(raw != "").any(axis=1)] if len(raw) else raw
         offset = 1 if path.suffix.lower() == ".json" else 2
         out = pd.DataFrame(index=raw.index)
@@ -75,6 +79,9 @@ def _load_table(raw_dir: Path, name: str, spec: dict) -> pd.DataFrame | None:
         out["source_file"] = path.relative_to(raw_dir).as_posix()
         out["source_row"] = raw.index + offset
         parts.append(out)
+    if not parts:
+        log.warning("table %s: no readable files; skipped", name)
+        return None
     df = pd.concat(parts, ignore_index=True)
     # keep canonical + provenance first, extras after
     first = canon + PROVENANCE

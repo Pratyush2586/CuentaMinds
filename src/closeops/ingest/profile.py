@@ -4,13 +4,16 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
 from pathlib import Path
 
 import pandas as pd
 
 from closeops.ingest.normalize import parse_amount, parse_date
 
-CSV_SUFFIXES = {".csv", ".tsv", ".txt"}
+log = logging.getLogger("closeops.ingest")
+
+CSV_SUFFIXES = {".csv", ".tsv"}
 
 
 def _sniff_delimiter(text: str) -> str:
@@ -21,6 +24,22 @@ def _sniff_delimiter(text: str) -> str:
         return max(",;\t", key=first.count)
 
 
+def _read_csv_text(text: str, path: Path) -> pd.DataFrame:
+    """Parse csv text; short rows are padded, over-long rows skipped (index keeps record position)."""
+    rows = list(csv.reader(io.StringIO(text), delimiter=_sniff_delimiter(text)))
+    if not rows:
+        raise ValueError("empty file")
+    header, width = rows[0], len(rows[0])
+    keep, idx = [], []
+    for i, r in enumerate(rows[1:]):
+        if len(r) > width:
+            log.warning("%s: record %d has %d fields, expected %d; skipped", path.name, i + 2, len(r), width)
+            continue
+        keep.append(r + [""] * (width - len(r)))
+        idx.append(i)
+    return pd.DataFrame(keep, columns=header, index=idx, dtype=object).astype(str)
+
+
 def read_raw(path: Path, sheet: str | None = None) -> pd.DataFrame:
     """Read a csv/xlsx/json file with every cell as a string ("" = missing).
 
@@ -29,15 +48,17 @@ def read_raw(path: Path, sheet: str | None = None) -> pd.DataFrame:
     """
     suffix = path.suffix.lower()
     if suffix in CSV_SUFFIXES:
-        text = path.read_text(encoding="utf-8-sig")
-        df = pd.read_csv(io.StringIO(text), sep=_sniff_delimiter(text), dtype=str,
-                         keep_default_na=False, skip_blank_lines=False)
+        try:
+            text = path.read_text(encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            text = path.read_text(encoding="cp1252", errors="replace")
+        df = _read_csv_text(text, path)
     elif suffix in (".xlsx", ".xlsm"):
         df = pd.read_excel(path, sheet_name=sheet if sheet else 0, dtype=str, keep_default_na=False)
     elif suffix == ".json":
         records = json.loads(path.read_text(encoding="utf-8-sig"))
-        df = pd.DataFrame(records)
-        df = df.astype(object).where(df.notna(), "").map(str)
+        df = pd.DataFrame([{str(k): "" if v is None else str(v) for k, v in r.items()}
+                           for r in records], dtype=object).fillna("")
     else:
         raise ValueError(f"unsupported file type: {path}")
     df.columns = [str(c).strip() for c in df.columns]

@@ -82,3 +82,39 @@ def test_json_records(tmp_path):
     b = load_dataset(tmp_path, m).table("bank_transactions")
     assert list(b.amount) == [2.5, 3.0]
     assert list(b.source_row) == [1, 2]
+
+
+def test_ragged_csv_row_skipped_keeps_row_numbers(tmp_path):
+    (tmp_path / "v.csv").write_text("id,n\n1,a\n2,b,EXTRA\n3,c\n")
+    m = _mapping(tmp_path, "  vendors:\n    files: ['v.csv']\n    columns: {vendor_id: id, name: n}\n")
+    v = load_dataset(tmp_path, m).table("vendors")
+    assert list(v.vendor_id) == ["1", "3"] and list(v.source_row) == [2, 4]
+
+
+def test_cp1252_csv_loads(tmp_path):
+    (tmp_path / "v.csv").write_bytes("id;n\n1;Café\n".encode("cp1252"))
+    m = _mapping(tmp_path, "  vendors:\n    files: ['v.csv']\n    columns: {vendor_id: id, name: n}\n")
+    assert load_dataset(tmp_path, m).table("vendors").name.iloc[0] == "Café"
+
+
+def test_bad_files_skipped_good_loaded(tmp_path, caplog):
+    (tmp_path / "v_notes.txt").write_text("hello world\n")
+    (tmp_path / "v_empty.csv").write_text("")
+    (tmp_path / "v_good.csv").write_text("id\n1\n")
+    m = _mapping(tmp_path, "  vendors:\n    files: ['v_*']\n    columns: {vendor_id: id}\n")
+    with caplog.at_level(logging.WARNING, logger="closeops.ingest"):
+        v = load_dataset(tmp_path, m).table("vendors")
+    assert list(v.vendor_id) == ["1"]
+    assert "v_notes.txt" in caplog.text and "v_empty.csv" in caplog.text
+
+
+def test_all_files_bad_skips_table(tmp_path):
+    (tmp_path / "a.csv").write_text("")
+    m = _mapping(tmp_path, "  accounts:\n    files: ['a.csv']\n    sheet: Nope\n    columns: {account: x}\n")
+    assert not load_dataset(tmp_path, m).has("accounts")
+
+
+def test_json_ids_not_floated(tmp_path):
+    (tmp_path / "i.json").write_text(json.dumps([{"invoice_id": 1, "x": 5}, {"invoice_id": 2}]))
+    m = _mapping(tmp_path, "  invoices:\n    files: ['i.json']\n    columns: {invoice_id: invoice_id}\n")
+    assert list(load_dataset(tmp_path, m).table("invoices").invoice_id) == ["1", "2"]
