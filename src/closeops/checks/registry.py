@@ -10,8 +10,8 @@ from closeops.checks.bankrec import reconcile_bank
 from closeops.checks.duplicates import check_duplicates
 from closeops.checks.fraud import check_fraud
 from closeops.checks.gl import check_gl, trial_balance
-from closeops.checks.purchasing import check_purchasing, match_status
-from closeops.checks.tax import check_tax
+from closeops.checks.purchasing import check_purchasing, match_status, po_column_empty
+from closeops.checks.tax import check_tax, derived_rate_files
 from closeops.model import Dataset, Finding
 
 log = logging.getLogger("closeops.checks")
@@ -46,6 +46,16 @@ def _skip_notes(ds: Dataset) -> list[str]:
             for t in tables if not ds.has(t)]
 
 
+def _presence_notes(ds: Dataset) -> list[str]:
+    """Checks narrowed because a mapped table has an entirely empty link column."""
+    notes = []
+    if ds.has("purchase_orders") and po_column_empty(ds):
+        notes.append("skipped no_po: po_id column empty")
+    for f in sorted(derived_rate_files(ds)):
+        notes.append(f"tax: tax_rate empty in {f}; rate derived as tax/net, tax_amount skipped there")
+    return notes
+
+
 def _fill_amount(f: Finding, ds: Dataset, fx: FxRates) -> None:
     if f.amount_eur or f.record_type not in _PRIMARY_AMOUNT or not f.record_ids:
         return
@@ -65,7 +75,7 @@ def _fill_amount(f: Finding, ds: Dataset, fx: FxRates) -> None:
 
 
 def run_checks(ds: Dataset, policy: dict) -> tuple[list[Finding], dict[str, pd.DataFrame], list[str]]:
-    notes = _skip_notes(ds)
+    notes = _skip_notes(ds) + _presence_notes(ds)
     findings: list[Finding] = []
     tables: dict[str, pd.DataFrame] = {}
 

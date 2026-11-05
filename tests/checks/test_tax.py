@@ -184,3 +184,37 @@ def test_exempt_row_without_numeric_rate_accepts_zero(make_ds, policy):
 def test_non_eu_vendor_zero_tax_not_flagged(make_ds, policy):
     row = inv_tax("I1", net=100, rate=0, tax=0, gross=100, vc="US", bc="ES")
     assert check_tax(make_ds(invoices=[row], tax_rates=ES), policy) == []
+
+
+DE = [{"country": "DE", "rate": 19, "kind": "standard"}, {"country": "DE", "rate": 7, "kind": "reduced"},
+      {"country": "DE", "rate": 0, "kind": "zero"}]
+
+
+def test_empty_rate_column_derives_rate(make_ds, policy):
+    ds = make_ds(invoices=[inv_tax("I1", net=100, rate=None, tax=19, gross=119),        # valid 19 %
+                           inv_tax("I2", net=33.33, rate=None, tax=6.33, gross=39.66),  # 18.99.. ~ 19 %
+                           inv_tax("I3", net=100, rate=None, tax=16, gross=116),        # 16 %: invalid
+                           inv_tax("I4", net=100, rate=None, tax=0, gross=100)],        # zero-rated
+                 tax_rates=DE)
+    f = check_tax(ds, policy)
+    assert _checks(f) == [("tax_rate", ["I3"])]
+    assert f[0].evidence["tax_rate"] == 0.16 and f[0].evidence["rate_derived"] is True
+    assert f[0].evidence["expected_tax"] == 19.0
+
+
+def test_derived_rate_never_tax_amount(make_ds, policy):
+    ds = make_ds(invoices=[inv_tax("I1", net=100, rate=None, tax=19, gross=119)], tax_rates=DE)
+    assert check_tax(ds, policy) == []
+
+
+def test_mapped_rate_column_unchanged(make_ds, policy):
+    ds = make_ds(invoices=[inv_tax("I1", net=100, rate=19, tax=16, gross=116),
+                           inv_tax("I2", net=100, rate=None, tax=19, gross=119)], tax_rates=DE)
+    assert _checks(check_tax(ds, policy)) == [("tax_amount", ["I1"])]
+
+
+def test_derived_rate_noted(make_ds, policy):
+    from closeops.checks.registry import run_checks
+    ds = make_ds(invoices=[inv_tax("I1", net=100, rate=None, tax=19, gross=119)], tax_rates=DE)
+    notes = run_checks(ds, policy)[2]
+    assert "tax: tax_rate empty in test; rate derived as tax/net, tax_amount skipped there" in notes

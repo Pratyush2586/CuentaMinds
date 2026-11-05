@@ -112,15 +112,17 @@ def propose_journal_entries(ds: Dataset, findings: list[Finding], policy: dict) 
     return pd.DataFrame(rows, columns=JE_COLUMNS)
 
 
-def _open_mask(inv: pd.DataFrame, bank_matches: pd.DataFrame | None) -> pd.Series:
+def _open_mask(inv: pd.DataFrame, bank_matches: pd.DataFrame | None) -> tuple[pd.Series, bool]:
+    """-> (open invoices, status_known). Without any status, unmatched invoices count as
+    open but the status is unknown, so their proposals are held."""
     status = inv["status"].map(lambda v: (_text(v) or "").lower() or None)
     if status.notna().any():
-        return status.isin(OPEN_STATUSES)
+        return status.isin(OPEN_STATUSES), True
     matched: set[str] = set()
     if bank_matches is not None and not bank_matches.empty:
         for ids in bank_matches["matched_ids"]:
             matched |= {str(i) for i in (ids if isinstance(ids, (list, tuple, set)) else [ids])}
-    return ~inv["invoice_id"].astype(str).isin(matched)
+    return ~inv["invoice_id"].astype(str).isin(matched), False
 
 
 def _terms(ds: Dataset) -> dict[str, int]:
@@ -173,7 +175,8 @@ def propose_payments(ds: Dataset, findings: list[Finding], policy: dict,
     if not ds.has("invoices"):
         return pd.DataFrame(columns=PAY_COLUMNS)
     inv = ds.table("invoices")
-    inv = inv[_open_mask(inv, bank_matches)]
+    open_mask, status_known = _open_mask(inv, bank_matches)
+    inv = inv[open_mask]
     vendors = {str(v["vendor_id"]): _text(v["iban"]) for v in ds.table("vendors").to_dict("records")}
     terms, changed = _terms(ds), _iban_changed_vendors(ds, policy)
     block, inv_issue = _finding_hits(findings)
@@ -194,6 +197,8 @@ def propose_payments(ds: Dataset, findings: list[Finding], policy: dict,
             reason = block.get(iid) or block[vid]
         elif iid in inv_issue:
             reason = inv_issue[iid]
+        elif not status_known:
+            reason = "status_unknown"
         elif not iban:
             reason = "no_iban"
         elif rate is not None and round(abs(gross) * rate, 2) >= mat:

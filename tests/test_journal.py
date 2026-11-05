@@ -196,3 +196,15 @@ def test_iban_change_date_hard_rule(make_ds, policy, changed_at, held):
     else:
         assert p.loc["A", "tier"] == "AUTO"
     assert p.loc["B", "tier"] == "AUTO"
+
+
+def test_unknown_status_never_auto(make_ds, policy):
+    ds = make_ds(vendors=[{"vendor_id": "V1", "entity": "E1", "iban": "DE1"}],
+                 invoices=[inv("A", "V1", "1", "2026-10-01", 10.0),
+                           inv("B", "V1", "2", "2026-10-01", 10.0)])
+    bm = pd.DataFrame([{"txn_id": "T", "matched_ids": ["A"], "method": "x", "confidence": 1.0}])
+    p = propose_payments(ds, [], policy, bm).set_index("invoice_id")
+    assert list(p.index) == ["B"]
+    assert p.loc["B", "tier"] == "HOLD" and p.loc["B", "block_reason"] == "status_unknown"
+    no_bm = propose_payments(ds, [], policy)
+    assert set(no_bm["block_reason"]) == {"status_unknown"}

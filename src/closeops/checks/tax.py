@@ -79,13 +79,32 @@ def _vendors_without_vat(ds: Dataset) -> set[str] | None:
     return {v for v, ok in has_vat.items() if not ok}
 
 
+def derived_rate_files(ds: Dataset) -> set[str]:
+    """Invoice source files whose tax_rate column is entirely empty (rate is derived there)."""
+    if not ds.has("invoices"):
+        return set()
+    inv = ds.table("invoices")
+    return {str(f) for f, g in inv.groupby(inv["source_file"].astype(str)) if g["tax_rate"].isna().all()}
+
+
+def _derive_rate(net: float | None, tax: float | None, country: dict | None, tol: float) -> float | None:
+    """tax / net, snapped to a valid rate of the buyer country when that rate explains the tax."""
+    if net is None or tax is None or net == 0:
+        return None
+    for x in sorted(country["rates"]) if country else []:
+        if abs(net * x - tax) <= tol:
+            return x
+    return round(tax / net, 4)
+
+
 def _evaluate(r: dict, tol: float, eu: set[str], book: dict, no_vat: set[str] | None):
     """Return (check, expected_tax) for the first check the invoice fails, else None."""
     net, tax, gross = r["net"], r["tax"], r["gross"]
     rate, vc, bc = r["rate"], r["vc"], r["bc"]
     if net is not None and tax is not None and gross is not None and abs(net + tax - gross) > tol:
         return "tax_math", gross - net
-    if net is not None and rate is not None and tax is not None and abs(net * rate - tax) > tol:
+    if (not r["rate_derived"] and net is not None and rate is not None and tax is not None
+            and abs(net * rate - tax) > tol):  # a derived rate would make this circular
         return "tax_amount", net * rate
     country = book.get(bc) if bc else None
     standard = country["standard"] if country else None
@@ -114,6 +133,7 @@ def check_tax(ds: Dataset, policy: dict) -> list[Finding]:
     eu = {str(c).upper() for c in cfg["eu_countries"]}
     book = _rate_book(ds)
     no_vat = _vendors_without_vat(ds)
+    derive_in = derived_rate_files(ds)
     out = []
     for row in ds.table("invoices").to_dict("records"):
         row = {k: _plain(v) for k, v in row.items()}
@@ -123,7 +143,11 @@ def check_tax(ds: Dataset, policy: dict) -> list[Finding]:
             "net": _abs(_num(row["net_amount"])), "tax": _abs(_num(row["tax_amount"])),
             "gross": _abs(_num(row["gross_amount"])), "rate": _fraction(_num(row["tax_rate"])),
             "vc": _text(row["vendor_country"]), "bc": _text(row["buyer_country"]),
+            "rate_derived": False,
         }
+        if r["rate"] is None and str(row["source_file"]) in derive_in:
+            r["rate"] = _derive_rate(r["net"], r["tax"], book.get(r["bc"]) if r["bc"] else None, tol)
+            r["rate_derived"] = r["rate"] is not None
         hit = _evaluate(r, tol, eu, book, no_vat)
         if hit is None:
             continue
@@ -137,7 +161,7 @@ def check_tax(ds: Dataset, policy: dict) -> list[Finding]:
             evidence={
                 "expected_tax": None if expected is None else round(expected, 2),
                 "booked_tax": booked, "difference": diff,
-                "net_amount": r["net"], "gross_amount": r["gross"], "tax_rate": r["rate"],
+                "net_amount": r["net"], "gross_amount": r["gross"], "tax_rate": r["rate"], "rate_derived": r["rate_derived"],
                 "vendor_country": r["vc"], "buyer_country": r["bc"], "vendor_id": r["vendor_id"],
                 "invoice_no": _plain(row["invoice_no"]), "currency": _plain(row["currency"]),
             },

@@ -80,7 +80,7 @@ def test_contract_price(make_ds, policy):
                             C("C2", 50.0, vf=date(2026, 11, 1))])
     f = check_purchasing(ds, policy)
     assert [(x.check, x.evidence["contract_id"]) for x in f] == [("contract_price_mismatch", "C1")]
-    assert f[0].evidence["also_triggered"] == ["no_po"]
+    assert f[0].evidence["also_triggered"] == []  # po_id column entirely empty: no_po skipped
 
 
 def test_contract_within_tolerance_or_expired(make_ds, policy):
@@ -115,3 +115,14 @@ def test_partial_receipt_still_fires(make_ds, policy):
     ds = make_ds(invoices=[I("I1")], purchase_orders=[PO("P1")],
                  goods_receipts=[GR("G1", "P1", 3)])
     assert [x.check for x in check_purchasing(ds, policy)] == ["qty_over_received"]
+
+
+def test_no_po_skipped_when_po_column_empty(make_ds, policy):
+    from closeops.checks.registry import run_checks
+    ds = make_ds(invoices=[inv("I1", "V1", "N1", "2026-10-01", 100.0),
+                           inv("I2", "V1", "N2", "2026-10-02", 50.0)],
+                 purchase_orders=[{"po_id": "P1", "vendor_id": "V1", "unit_price": 10.0}])
+    assert check_purchasing(ds, policy) == []
+    fs, _, notes = run_checks(ds, policy)
+    assert not any(f.check == "no_po" for f in fs)
+    assert "skipped no_po: po_id column empty" in notes

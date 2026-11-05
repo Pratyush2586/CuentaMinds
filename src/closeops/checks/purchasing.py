@@ -61,9 +61,15 @@ def _key(v) -> str | None:
     return s.lower() if s else None
 
 
+def po_column_empty(ds: Dataset) -> bool:
+    """invoices.po_id is entirely empty: no_po would flag every invoice, so it is skipped."""
+    return ds.has("invoices") and ds.table("invoices")["po_id"].isna().all()
+
+
 class _Refs:
     def __init__(self, ds: Dataset):
         self.has_po = ds.has("purchase_orders")
+        self.po_link = not po_column_empty(ds)
         self.has_gr = ds.has("goods_receipts")
         self.has_contracts = ds.has("contracts")
         self.pos: dict[str, dict] = {}
@@ -109,7 +115,7 @@ def _analyse(r: dict, refs: _Refs, tol_pct: float, qty_tol: float) -> dict:
     po = refs.pos.get(po_id) if po_id else None
     price, qty, d = _f(r["unit_price"]), _f(r["qty"]), r["invoice_date"]
     hits: dict[str, dict] = {}
-    if refs.has_po and po is None:
+    if refs.has_po and refs.po_link and po is None:
         hits["no_po"] = {"reason": "po_id_missing" if po_id is None else "po_not_found"}
     if po is not None:
         po_price = _f(po["unit_price"])
