@@ -1,7 +1,9 @@
+from pathlib import Path
 from datetime import date
 
 import pandas as pd
 import pytest
+import yaml
 
 from closeops.model import CANONICAL, Dataset
 
@@ -20,3 +22,9 @@ def make_ds():
         return Dataset(tables=out, period_end=date.fromisoformat(period_end))
 
     return _make
+
+
+@pytest.fixture
+def policy():
+    path = Path(__file__).resolve().parent.parent / "config" / "policy.yaml"
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
