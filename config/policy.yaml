@@ -29,3 +29,12 @@ tiers:
   auto_min_confidence: 0.9
   hold_below_confidence: 0.6
   auto_categories: [duplicate, tax, match, bankrec]
+
+accounts:
+  ap: "4000"
+  vat_input: "4720"
+  expense_default: "6000"
+  accrued: "4110"
+  deferred: "4800"
+  suspense: "5550"
+  bank: "5720"

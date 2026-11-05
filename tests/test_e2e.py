@@ -42,7 +42,8 @@ def test_evidence_and_outputs(scored):
     res, _, _ = scored
     ev = res.run_dir / "evidence.jsonl"
     assert EvidenceLog.verify(ev)
-    assert len(ev.read_text(encoding="utf-8").splitlines()) == len(res.findings) + 4
+    assert len(ev.read_text(encoding="utf-8").splitlines()) == (
+        len(res.findings) + 4 + res.journal_entries["je_id"].nunique() + len(res.payments))
     out = json.loads((res.run_dir / "findings.json").read_text(encoding="utf-8"))
     assert len(out) == len(res.findings)
     assert all(f.tier is not None for f in res.findings)
