@@ -69,6 +69,8 @@ def run_close(raw_dir: Path, mapping: Path, policy_path: Path, out_dir: Path,
             notes.append(f"agents unavailable: {exc}")
         if llm is not None:
             findings = team.resolve_residuals(ds, findings, policy, llm, log, notes)
+            if any(n.startswith("agents unavailable") for n in notes):
+                llm = None  # circuit breaker tripped: rules-only, no Controller
             stage("agents", {"findings": len(findings), "notes": notes})
 
     jes = propose_journal_entries(ds, findings, policy)

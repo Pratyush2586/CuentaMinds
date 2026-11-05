@@ -5,6 +5,7 @@ Any agent failure leaves the finding exactly as the rules produced it.
 from __future__ import annotations
 
 import json
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Protocol
 
@@ -23,6 +24,7 @@ ROLES = {"duplicate": "AP Clerk", "match": "AP Clerk", "bankrec": "Reconciler",
 VERDICTS = ("confirm", "dismiss", "escalate")
 MAX_TURNS = 6
 MAX_EXPLANATION = 600
+MAX_MEMO = 4000  # the Controller's explanation is the close memo
 MAX_WORKERS = 8
 
 
@@ -34,6 +36,10 @@ class LLM(Protocol):
 
 class AgentError(RuntimeError):
     pass
+
+
+class AgentsUnavailable(AgentError):
+    """Credentials missing/rejected: no agent call can succeed, so stop trying."""
 
 
 SUBMIT_VERDICT = {
@@ -61,11 +67,11 @@ _CONTROLLER_SYSTEM = (
     "You are the Controller signing off a month-end close. You receive a summary of all "
     "findings and proposed journal entries. Verdict 'confirm' means the close is ready to be "
     "signed off; 'escalate' or 'dismiss' means it is not. Put a concise close memo in "
-    "markdown (at most 600 characters) in the explanation. Call submit_verdict exactly once."
+    "markdown (at most 4000 characters) in the explanation. Call submit_verdict exactly once."
 )
 
 
-def _parse_verdict(inp: dict) -> dict:
+def _parse_verdict(inp: dict, limit: int = MAX_EXPLANATION) -> dict:
     verdict = inp.get("verdict")
     if verdict not in VERDICTS:
         raise AgentError(f"invalid verdict {verdict!r}")
@@ -74,7 +80,7 @@ def _parse_verdict(inp: dict) -> dict:
     except (TypeError, ValueError):
         raise AgentError("invalid confidence") from None
     return {"verdict": verdict, "confidence": conf,
-            "explanation": str(inp.get("explanation", ""))[:MAX_EXPLANATION]}
+            "explanation": str(inp.get("explanation", ""))[:limit]}
 
 
 class ClaudeLLM:
@@ -91,6 +97,12 @@ class ClaudeLLM:
             return self._loop(role, model, finding, context)
         except AgentError:
             raise
+        except TypeError as exc:  # SDK: no api_key / auth_token / credentials resolved
+            if "authentication" in str(exc):
+                raise AgentsUnavailable(str(exc)) from exc
+            raise
+        except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as exc:
+            raise AgentsUnavailable(f"{type(exc).__name__}: {exc}") from exc
         except anthropic.RateLimitError as exc:
             raise AgentError("RateLimitError") from exc
         except anthropic.APIStatusError as exc:
@@ -114,7 +126,7 @@ class ClaudeLLM:
             uses = [b for b in response.content if b.type == "tool_use"]
             for b in uses:
                 if b.name == "submit_verdict":
-                    return _parse_verdict(b.input)
+                    return _parse_verdict(b.input, MAX_MEMO if role == "Controller" else MAX_EXPLANATION)
             if response.stop_reason != "tool_use" or not uses:
                 raise AgentError("no verdict submitted")
             messages.append({"role": "assistant", "content": response.content})
@@ -141,10 +153,15 @@ def _selected(f: Finding, policy: dict) -> bool:
             or cfg["hold_below_confidence"] <= f.confidence < cfg["auto_min_confidence"])
 
 
-def _call(llm: LLM, role: str, f: Finding):
+def _call(llm: LLM, role: str, f: Finding, stop: threading.Event):
+    if stop.is_set():
+        return None, "skipped: agents unavailable"
     try:
         ctx = {"finding_id": f.finding_id, "entity": f.entity}
         return _parse_verdict(llm.resolve(role, TRIAGE_MODEL, f.to_dict(), ctx)), None
+    except AgentsUnavailable as exc:
+        stop.set()
+        return None, str(exc)
     except Exception as exc:  # any agent failure -> rules-only result
         return None, str(exc) or type(exc).__name__
 
@@ -153,8 +170,20 @@ def resolve_residuals(ds: Dataset, findings: list[Finding], policy: dict, llm: L
                       log: EvidenceLog, notes: list[str] | None = None) -> list[Finding]:
     notes = notes if notes is not None else []
     picked = sorted((f for f in findings if _selected(f, policy)), key=lambda f: f.finding_id)
+    stop = threading.Event()  # circuit breaker: set on the first authentication failure
+    unavailable: list[str] = []
+
+    def call(f: Finding):
+        out = _call(llm, ROLES[f.category], f, stop)
+        if out[0] is None and stop.is_set() and not out[1].startswith("skipped"):
+            unavailable.append(out[1])
+        return out
+
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        outcomes = list(pool.map(lambda f: _call(llm, ROLES[f.category], f), picked))
+        outcomes = list(pool.map(call, picked))
+    if stop.is_set():  # leave every finding exactly as the rules produced it
+        notes.append(f"agents unavailable: {sorted(unavailable)[0]}")
+        return findings
 
     dismissed: set[int] = set()
     escalated: list[Finding] = []
@@ -172,7 +201,8 @@ def resolve_residuals(ds: Dataset, findings: list[Finding], policy: dict, llm: L
         if effective == "dismiss":
             dismissed.add(id(f))
         else:
-            f.confidence = max(f.confidence, verdict["confidence"])
+            if effective == "confirm":  # escalate / overridden dismiss keep the rule confidence
+                f.confidence = max(f.confidence, verdict["confidence"])
             f.explanation = verdict["explanation"]
             f.resolved_by = role
             if effective == "escalate":
@@ -220,7 +250,7 @@ def controller_memo(ds: Dataset, findings: list[Finding], journal_entries: pd.Da
     try:
         summary = controller_summary(findings, journal_entries)
         v = _parse_verdict(llm.resolve("Controller", CONTROLLER_MODEL, summary,
-                                       {"period_end": ds.period_end.isoformat()}))
+                                       {"period_end": ds.period_end.isoformat()}), MAX_MEMO)
     except Exception as exc:
         return f"Controller unavailable: {str(exc) or type(exc).__name__}; close not signed off.", False
     return v["explanation"], v["verdict"] == "confirm"

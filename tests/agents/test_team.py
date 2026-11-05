@@ -103,8 +103,7 @@ def test_escalate_forces_hold_surviving_retier(ds, policy, tmp_path):
     f = mk("dup_near", "duplicate", 0.7)
     llm = FakeLLM({f.finding_id: {"verdict": "escalate", "confidence": 0.99, "explanation": "look"}})
     out, _, _ = run(ds, policy, [f], llm, tmp_path)
-    # on its own, 0.99 confidence on a duplicate would re-tier to AUTO
-    assert out[0].confidence == 0.99
+    assert out[0].confidence == 0.7  # escalate does not raise confidence
     assert out[0].tier is Tier.HOLD and out[0].requires_human_review
 
 
@@ -121,6 +120,8 @@ def test_iban_dismiss_becomes_hold(ds, policy, tmp_path, check):
     llm = FakeLLM({f.finding_id: {"verdict": "dismiss", "confidence": 0.99, "explanation": "fp"}})
     out, notes, events = run(ds, policy, [f], llm, tmp_path)
     assert len(out) == 1 and out[0].tier is Tier.HOLD
+    assert out[0].confidence == 0.7  # agent's 0.99 'dismiss' confidence is not applied
+    assert events[0]["output"]["confidence"] == 0.99
     assert any("overridden" in n for n in notes)
     assert events[0]["output"]["applied"] == "escalate"
 
@@ -245,10 +246,29 @@ def test_claude_llm_loop(tds):
     out = ClaudeLLM(tds, client=client).resolve("Tax Reviewer", "claude-sonnet-5-5", {"a": 1}, {})
     assert out["confidence"] == 1.0 and len(out["explanation"]) == 600
     first, second = client.requests
-    assert first["tool_choice"] == {"type": "auto"} and "thinking" not in first
-    assert "temperature" not in first and first["output_config"] == {"effort": "low"}
+    for req in client.requests:
+        assert req["model"] == "claude-sonnet-5-5"
+        assert req["betas"] == ["server-side-fallback-2026-07-01"]
+        assert req["fallbacks"] == "default"
+        assert req["tool_choice"] == {"type": "auto"}
+        assert all(t["strict"] is True for t in req["tools"])
+        assert {"thinking", "temperature"}.isdisjoint(req)
+    assert first["output_config"] == {"effort": "low"}
     result = second["messages"][-1]["content"][0]
     assert result["type"] == "tool_result" and "0.19" in result["content"]
+
+
+def test_controller_request_and_long_memo(tds):
+    verdict = {"verdict": "confirm", "confidence": 0.9, "explanation": "m" * 3000}
+    client = ScriptedClient([_resp("tool_use", _use("submit_verdict", verdict))])
+    out = ClaudeLLM(tds, client=client).resolve("Controller", "claude-opus-5-5", {}, {})
+    assert len(out["explanation"]) == 3000
+    req = client.requests[0]
+    assert req["model"] == "claude-opus-5-5" and req["output_config"] == {"effort": "medium"}
+    assert all(t["strict"] is True for t in req["tools"])
+    memo, ready = controller_memo(tds, [], None, FakeLLM(
+        {"controller": {"verdict": "confirm", "confidence": 1, "explanation": "m" * 3000}}))
+    assert len(memo) == 3000 and ready
 
 
 def test_claude_llm_failures(tds):
@@ -319,3 +339,24 @@ def test_run_close_with_fake_agents(tmp_path, monkeypatch):
     assert (res.run_dir / "close_memo.md").read_text(encoding="utf-8").strip() == "All clear."
     assert any(c[0] == "Controller" for c in fake.calls)
     assert all(f.tier is not None for f in res.findings)
+
+
+def test_run_close_no_credentials_single_note(tmp_path, monkeypatch):
+    M, P = _paths()
+    raw = generate(tmp_path / "raw", seed=7, n_invoices=200)
+    base = run_close(raw, M, P, tmp_path / "base")
+    msg = "Could not resolve authentication method. Expected one of api_key"
+    calls = []
+
+    def boom(**kw):
+        calls.append(kw)
+        raise TypeError(msg)
+    client = SimpleNamespace(beta=SimpleNamespace(messages=SimpleNamespace(create=boom)))
+    monkeypatch.setattr(team, "ClaudeLLM", lambda ds: ClaudeLLM(ds, client=client))
+    res = run_close(raw, M, P, tmp_path / "r", use_agents=True)
+    unavailable = [n for n in res.notes if n.startswith("agents unavailable")]
+    assert len(unavailable) == 1 and "authentication" in unavailable[0]
+    assert not any(n.startswith("agent error") for n in res.notes)
+    assert _fingerprint(res) == _fingerprint(base)
+    assert not (res.run_dir / "close_memo.md").exists() and res.close_ready is None
+    assert len(calls) <= team.MAX_WORKERS  # breaker stops further dispatch
