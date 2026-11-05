@@ -13,7 +13,7 @@ All commands run from the repo root in PowerShell or Git Bash. `closeops` is
 ## 1. Setup on a fresh machine (Windows)
 
 ```powershell
-git clone <repo> nova7nov; cd nova7nov; git checkout feature/close-engine
+git clone <repo> nova7nov; cd nova7nov; git checkout main
 py -3.12 -m venv .venv                      # system python may be 3.11: always use py -3.12
 .venv/Scripts/python -m pip install -e ".[dev]"
 .venv/Scripts/python -m pytest -q           # expect all green in ~15 s
