@@ -1,7 +1,6 @@
 """End-to-end close: ingest -> checks -> tiers -> evidence log -> findings export."""
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +9,7 @@ import pandas as pd
 
 from closeops.checks.registry import run_checks
 from closeops.evidence import EvidenceLog
+from closeops.export.generic import write_results
 from closeops.ingest.mapping import load_dataset
 from closeops.journal import propose_journal_entries, propose_payments
 from closeops.model import Dataset, Finding
@@ -72,17 +72,15 @@ def run_close(raw_dir: Path, mapping: Path, policy_path: Path, out_dir: Path,
         log.append("rule", "propose_payment", [r.invoice_id], {},
                    {"invoice_id": r.invoice_id, "tier": r.tier, "block_reason": r.block_reason},
                    None, r.tier)
-    jes.to_csv(run_dir / "journal_entries.csv", index=False, encoding="utf-8")
-    payments.to_csv(run_dir / "payment_proposals.csv", index=False, encoding="utf-8")
 
     for f in findings:
         log.append("rule", "flag", list(f.record_ids), f.evidence,
                    {"finding_id": f.finding_id, "check": f.check, "category": f.category,
                     "severity": f.severity}, f.confidence, f.tier.value)
 
-    (run_dir / "findings.json").write_text(
-        json.dumps([f.to_dict() for f in findings], indent=2, default=str), encoding="utf-8")
-    stage("export", {"findings_file": "findings.json", "findings": len(findings), "notes": notes})
-
-    return RunResult(dataset=ds, findings=findings, side_tables=side_tables, notes=notes,
-                     journal_entries=jes, payments=payments, run_dir=run_dir)
+    result = RunResult(dataset=ds, findings=findings, side_tables=side_tables, notes=notes,
+                       journal_entries=jes, payments=payments, run_dir=run_dir)
+    written = write_results(result, policy)
+    stage("export", {"files": [p.name for p in written], "findings": len(findings),
+                     "notes": notes})
+    return result
