@@ -5,3 +5,10 @@ duplicates:
 tax:
   tolerance: 0.02
   eu_countries: [AT, BE, BG, HR, CY, CZ, DK, EE, FI, FR, DE, GR, HU, IE, IT, LV, LT, LU, MT, NL, PL, PT, RO, SK, SI, ES, SE]
+
+fraud:
+  iban_change_window_days: 30
+  approval_limit: 10000
+  split_window_days: 7
+  round_amount_min: 5000
+  export_soft_signals: false
