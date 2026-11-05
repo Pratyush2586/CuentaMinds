@@ -156,8 +156,8 @@ def _finding_hits(findings: list[Finding]) -> tuple[dict[str, str], dict[str, st
     for f in sorted(findings, key=lambda x: x.finding_id):
         if f.category in ("fraud", "duplicate"):
             keys = list(f.record_ids)
-            if f.evidence.get("vendor_id"):
-                keys.append(f.evidence["vendor_id"])  # fraud findings key on a txn id
+            if f.category == "fraud" and f.severity == "high" and f.evidence.get("vendor_id"):
+                keys.append(f.evidence["vendor_id"])  # compromised bank details: vendor-wide hold
             for k in keys:
                 block.setdefault(str(k), f.check)
         elif f.category in ("match", "tax"):

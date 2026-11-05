@@ -11,8 +11,9 @@ from tests.helpers import inv, inv_tax, txn
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def _f(check, ids, category="duplicate", record_type="invoice", evidence=None, tier=Tier.AUTO):
-    return Finding(check=check, category=category, severity="medium", entity="E1",
+def _f(check, ids, category="duplicate", record_type="invoice", evidence=None, tier=Tier.AUTO,
+       severity="medium"):
+    return Finding(check=check, category=category, severity=severity, entity="E1",
                    record_type=record_type, record_ids=ids, evidence=evidence or {},
                    confidence=0.95, suggested_action="", tier=tier)
 
@@ -115,7 +116,8 @@ def test_old_iban_change_outside_window_is_not_held(make_ds, policy):
 
 def test_duplicate_fraud_match_holds(make_ds, policy):
     fs = [_f("dup_exact", ["A", "X"]),
-          _f("iban_not_in_master", ["T9"], "fraud", "bank_transaction", {"vendor_id": "V2"}),
+          _f("iban_not_in_master", ["T9"], "fraud", "bank_transaction", {"vendor_id": "V2"},
+             severity="high"),
           _f("po_price_mismatch", ["B"], "match")]
     p = propose_payments(_pay_ds(make_ds), fs, policy).set_index("invoice_id")
     assert p.loc["A", "block_reason"] == "dup_exact"
@@ -159,3 +161,16 @@ def test_seed7_pipeline_outputs(tmp_path):
     assert trap_vendors
     assert p[p.vendor_id.isin(trap_vendors) & (p.tier != "HOLD")].empty
     assert set(p.tier) <= {"AUTO", "HOLD"} and (p[p.tier == "HOLD"].block_reason != "").all()
+
+
+def test_vendor_wide_hold_only_for_high_fraud(make_ds, policy):
+    ds = _pay_ds(make_ds)
+    dup = propose_payments(ds, [_f("dup_exact", ["A", "X"], evidence={"vendor_id": "V1"})],
+                           policy).set_index("invoice_id")
+    assert dup.loc["A", "tier"] == "HOLD" and dup.loc["B", "tier"] == "AUTO"
+    med = _f("iban_country_mismatch", ["T9"], "fraud", "bank_transaction", {"vendor_id": "V2"})
+    assert (propose_payments(ds, [med], policy)["tier"] == "AUTO").all()
+    hi = _f("iban_changed_before_payment", ["T9"], "fraud", "bank_transaction",
+            {"vendor_id": "V2"}, severity="high")
+    p = propose_payments(ds, [hi], policy).set_index("invoice_id")
+    assert p.loc["B", "tier"] == "HOLD" and p.loc["A", "tier"] == "AUTO"
