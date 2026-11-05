@@ -13,6 +13,7 @@ TABLES = {"journal": "journal_entries.csv", "payments": "payment_proposals.csv",
           "bank_rec": "bank_reconciliation.csv", "match_status": "match_status.csv",
           "trial_balance": "trial_balance.csv"}
 DECISION_TIER = {"approve": "APPROVED", "reject": "REJECTED"}
+LOGGED_TIER = {"approve": "HUMAN_APPROVED", "reject": "HUMAN_REJECTED"}  # evidence-log tier
 
 
 def _read_csv(path: Path) -> pd.DataFrame:
@@ -29,6 +30,17 @@ def latest_run(results_dir: Path) -> Path | None:
         return None
     runs = sorted(d for d in root.iterdir() if d.is_dir() and (d / "findings.json").exists())
     return runs[-1] if runs else None
+
+
+def resolve_run_dir(session_run_dir: str | None, results_dir: Path,
+                    previous_results_dir: str | Path | None) -> Path | None:
+    """Run to show: the session's run unless the Results dir changed or the run has no
+    findings.json; otherwise the newest run under results_dir (None if there is none)."""
+    if previous_results_dir is not None and Path(previous_results_dir) != Path(results_dir):
+        session_run_dir = None
+    if session_run_dir and (Path(session_run_dir) / "findings.json").exists():
+        return Path(session_run_dir)
+    return latest_run(results_dir)
 
 
 def load_decisions(run_dir: Path) -> dict[str, str]:
@@ -61,7 +73,7 @@ def load_run(run_dir: Path) -> dict:
     report = run_dir / "close_report.md"
     out.update(findings=findings, decisions=decisions, events=events,
                report=report.read_text(encoding="utf-8") if report.exists() else "",
-               evidence_ok=EvidenceLog.verify(ev))
+               evidence_ok=EvidenceLog.verify(ev), evidence_status=EvidenceLog.status(ev))
     return out
 
 
@@ -113,8 +125,7 @@ def record_decision(run_dir: Path, item_id: str, decision: str) -> str:
             break
     EvidenceLog(run_dir / "evidence.jsonl").append(
         "human", decision, [item_id], {},
-        {"decision": decision, "previous_tier": previous}, None,
-        "AUTO_NOTE" if decision == "approve" else "HOLD")
+        {"decision": decision, "previous_tier": previous}, None, LOGGED_TIER[decision])
     decisions = load_decisions(run_dir)
     decisions[item_id] = decision
     (run_dir / "human_decisions.json").write_text(

@@ -15,8 +15,8 @@ if str(ROOT) not in sys.path:
 import pandas as pd  # noqa: E402
 import streamlit as st  # noqa: E402
 
-from dashboard.data import (latest_run, load_run, reconciled_pct, record_decision,  # noqa: E402
-                            source_rows)
+from dashboard.data import (load_run, reconciled_pct, record_decision,  # noqa: E402
+                            resolve_run_dir, source_rows)
 
 st.set_page_config(page_title="closeops", layout="wide")
 st.title("closeops - autonomous month-end close")
@@ -52,10 +52,14 @@ if sb.button("Run close", type="primary"):
         except Exception as e:  # show the failure instead of a stack trace in the demo
             status.update(label=f"Close failed: {e}", state="error")
 
-if "run_dir" not in st.session_state:
-    newest = latest_run(results_dir)
-    if newest is not None:
-        st.session_state["run_dir"] = str(newest)
+# a changed Results dir, or a session run without findings.json, falls back to the newest run
+shown = resolve_run_dir(st.session_state.get("run_dir"), results_dir,
+                        st.session_state.get("results_dir"))
+st.session_state["results_dir"] = str(results_dir)
+if shown is None:
+    st.session_state.pop("run_dir", None)
+else:
+    st.session_state["run_dir"] = str(shown)
 if "run_dir" not in st.session_state:
     st.info("No run yet. Generate demo data if needed, then press **Run close** in the sidebar.")
     st.stop()
@@ -85,7 +89,8 @@ with tabs[0]:
     k[0].metric("Findings", len(findings))
     k[1].metric("HOLD findings", hold, help=f"{pending} still awaiting human review")
     k[2].metric("Bank reconciled", f"{pct:.1f}%" if pct is not None else "n/a")
-    k[3].metric("Evidence chain", "verified ✓" if run["evidence_ok"] else "BROKEN ✗")
+    k[3].metric("Evidence chain", {"verified": "verified ✓", "broken": "BROKEN ✗",
+                                   "missing": "missing (no evidence.jsonl)"}[run["evidence_status"]])
     if not findings.empty:
         st.subheader("Findings by category")
         st.bar_chart(findings["category"].value_counts().rename_axis("category").reset_index(name="count"), x="category", y="count")

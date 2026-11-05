@@ -37,3 +37,28 @@ def test_continues_numbering(tmp_path):
     ev = _add(EvidenceLog(p), 2)
     assert ev["id"] == "EV-000002"
     assert EvidenceLog.verify(p) is True
+
+
+def test_status_states(tmp_path):
+    p = tmp_path / "ev.jsonl"
+    assert EvidenceLog.status(p) == "missing"
+    _add(EvidenceLog(p), 1)
+    assert EvidenceLog.status(p) == "verified"
+    p.write_text(p.read_text(encoding="utf-8").replace("act1", "act9"), encoding="utf-8")
+    assert EvidenceLog.status(p) == "broken"
+
+
+def test_non_string_keys_verify(tmp_path):
+    from datetime import date
+    p = tmp_path / "ev.jsonl"
+    log = EvidenceLog(p)
+    log.append("rules", "x", [], {1: "a", 10: "b", 9: "c"}, {"o": {2: [date(2026, 1, 1)]}}, None, None)
+    log.append("rules", "y", [], {date(2026, 10, 31): 1.5}, {}, None, None)
+    assert EvidenceLog.verify(p) is True
+
+
+def test_committed_demo_log_still_verifies():
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "results" / "demo"
+    logs = sorted(root.glob("*/evidence.jsonl"))
+    assert logs and all(EvidenceLog.verify(x) for x in logs)

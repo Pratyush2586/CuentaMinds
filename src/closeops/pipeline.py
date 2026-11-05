@@ -1,6 +1,7 @@
 """End-to-end close: ingest -> checks -> tiers -> evidence log -> findings export."""
 from __future__ import annotations
 
+import hashlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -123,6 +124,7 @@ def run_close(raw_dir: Path, mapping: Path, policy_path: Path, out_dir: Path,
                        journal_entries=jes, payments=payments, run_dir=run_dir,
                        close_ready=close_ready)
     written = write_results(result, policy)
-    stage("export", {"files": [p.name for p in written], "findings": len(findings),
+    hashes = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in written}
+    stage("export", {"files": hashes, "findings": len(findings),
                      "notes": notes})
     return result

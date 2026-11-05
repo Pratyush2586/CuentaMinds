@@ -9,8 +9,23 @@ from pathlib import Path
 GENESIS = "0" * 64
 
 
+def _str_keys(o):
+    """Recursively turn mapping keys into strings (json only allows str keys on read-back)."""
+    if isinstance(o, dict):
+        return {str(k): _str_keys(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_str_keys(v) for v in o]
+    return o
+
+
+def _jsonable(event: dict) -> dict:
+    """The event exactly as it reads back from the file."""
+    return json.loads(json.dumps(_str_keys(event), default=str))
+
+
 def _digest(event_without_hash: dict) -> str:
-    payload = event_without_hash["prev_hash"] + json.dumps(event_without_hash, sort_keys=True, default=str)
+    event = _jsonable(event_without_hash)
+    payload = event["prev_hash"] + json.dumps(event, sort_keys=True, default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -38,6 +53,7 @@ class EvidenceLog:
             "output": output, "confidence": confidence, "tier": tier,
             "prev_hash": self._last_hash,
         }
+        event = _jsonable(event)
         event["hash"] = _digest(event)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("a", encoding="utf-8", newline="\n") as fh:
@@ -47,7 +63,15 @@ class EvidenceLog:
         return event
 
     @staticmethod
+    def status(path: Path | str) -> str:
+        """"verified", "broken" or "missing" (no log file at all)."""
+        if not Path(path).exists():
+            return "missing"
+        return "verified" if EvidenceLog.verify(path) else "broken"
+
+    @staticmethod
     def verify(path: Path | str) -> bool:
+        """True when the chain is intact; also True for a missing file (see status())."""
         p = Path(path)
         if not p.exists():
             return True

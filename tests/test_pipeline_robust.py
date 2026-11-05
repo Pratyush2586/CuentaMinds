@@ -84,3 +84,14 @@ def test_ingest_notes_reach_run_notes(tmp_path):
                  "    columns: {invoice_id: id, invoice_date: d, gross_amount: g}\n", encoding="utf-8")
     res = run_close(raw, m, POLICY, tmp_path / "r")
     assert res.notes[0] == "invoices.invoice_date: 1/2 unparsed"
+
+
+def test_export_event_hashes_files(small_raw, tmp_path):
+    import hashlib
+    res = run_close(small_raw, MAPPING, POLICY, tmp_path / "r")
+    events = [json.loads(x) for x in (res.run_dir / "evidence.jsonl").read_text(encoding="utf-8").splitlines()]
+    export = [e for e in events if e["action"] == "export"][-1]
+    files = export["output"]["files"]
+    assert "findings.json" in files and len(files) >= 5
+    for name, digest in files.items():
+        assert hashlib.sha256((res.run_dir / name).read_bytes()).hexdigest() == digest
