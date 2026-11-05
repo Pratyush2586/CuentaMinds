@@ -23,3 +23,9 @@ bankrec:
   amount_tolerance: 0.01
   fx_tolerance_pct: 1
   max_payment_lag_days: 90
+
+materiality_eur: 5000
+tiers:
+  auto_min_confidence: 0.9
+  hold_below_confidence: 0.6
+  auto_categories: [duplicate, tax, match, bankrec]
