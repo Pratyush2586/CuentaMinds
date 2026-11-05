@@ -1,6 +1,8 @@
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from closeops.journal import propose_journal_entries, propose_payments
 from closeops.model import Finding, Tier
@@ -178,3 +180,19 @@ def test_vendor_wide_hold_only_for_high_fraud(make_ds, policy):
             {"vendor_id": "V2"}, severity="high")
     p = propose_payments(ds, [hi], policy).set_index("invoice_id")
     assert p.loc["B", "tier"] == "HOLD" and p.loc["A", "tier"] == "AUTO"
+
+
+@pytest.mark.parametrize("changed_at,held", [
+    (date(2026, 11, 2), True),     # dated after period_end
+    (None, True),                  # undated / unparseable
+    (date(2026, 10, 25), True),    # inside the window
+    (date(2026, 9, 1), False),     # 60 days before: not held by this rule
+])
+def test_iban_change_date_hard_rule(make_ds, policy, changed_at, held):
+    hist = [{"vendor_id": "V1", "iban": "DE1", "changed_at": changed_at}]
+    p = propose_payments(_pay_ds(make_ds, vendor_bank_history=hist), [], policy).set_index("invoice_id")
+    if held:
+        assert p.loc["A", "tier"] == "HOLD" and p.loc["A", "block_reason"] == "iban_changed"
+    else:
+        assert p.loc["A", "tier"] == "AUTO"
+    assert p.loc["B", "tier"] == "AUTO"

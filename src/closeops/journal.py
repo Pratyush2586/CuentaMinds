@@ -138,13 +138,15 @@ def _terms(ds: Dataset) -> dict[str, int]:
 
 
 def _iban_changed_vendors(ds: Dataset, policy: dict) -> set[str]:
+    """Vendors whose bank details changed within the window before period end, or at an
+    unknown time, or after period end (hard rule: never auto-pay these)."""
     window = int(policy["fraud"]["iban_change_window_days"])
     out: set[str] = set()
     if not ds.has("vendor_bank_history"):
         return out
     for h in ds.table("vendor_bank_history").to_dict("records"):
         d = _plain(h["changed_at"])
-        if isinstance(d, date) and 0 <= (ds.period_end - d).days <= window:
+        if not isinstance(d, date) or (ds.period_end - d).days <= window:
             out.add(str(h["vendor_id"]))
     return out
 
