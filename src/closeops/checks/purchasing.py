@@ -120,7 +120,7 @@ def _analyse(r: dict, refs: _Refs, tol_pct: float, qty_tol: float) -> dict:
                                          "tolerance_pct": tol_pct}
     no_receipt = po is not None and (not refs.has_gr or refs.receipt_rows.get(po_id, 0) == 0)
     qty_over = False
-    if po is not None and refs.has_gr and qty is not None:
+    if po is not None and not no_receipt and qty is not None:
         received = refs.received.get(po_id, 0.0)
         if qty > received + qty_tol:
             qty_over = True

@@ -102,3 +102,16 @@ def test_zero_or_missing_ref_price_skipped(make_ds, policy):
                  purchase_orders=[PO("P1", price=0.0), PO("P2")],
                  goods_receipts=[GR("G1", "P1", 10), GR("G2", "P2", 10)])
     assert check_purchasing(ds, policy) == []
+
+
+def test_no_receipt_rows_for_po_no_qty_finding(make_ds, policy):
+    ds = make_ds(invoices=[I("I1")], purchase_orders=[PO("P1"), PO("P2")],
+                 goods_receipts=[GR("G1", "P2", 10)])
+    assert check_purchasing(ds, policy) == []
+    assert _status(ds, policy) == {"I1": "no_receipt"}
+
+
+def test_partial_receipt_still_fires(make_ds, policy):
+    ds = make_ds(invoices=[I("I1")], purchase_orders=[PO("P1")],
+                 goods_receipts=[GR("G1", "P1", 3)])
+    assert [x.check for x in check_purchasing(ds, policy)] == ["qty_over_received"]
