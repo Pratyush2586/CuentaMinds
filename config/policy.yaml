@@ -16,3 +16,10 @@ fraud:
 match:
   price_tolerance_pct: 2
   qty_tolerance: 0
+
+bankrec:
+  date_window_days: 5
+  max_group: 4
+  amount_tolerance: 0.01
+  fx_tolerance_pct: 1
+  max_payment_lag_days: 90

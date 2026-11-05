@@ -62,6 +62,7 @@ class _Vendors:
         self.current: dict[str, set[str]] = defaultdict(set)   # iban -> vendor ids (current)
         self.by_iban: dict[str, set[str]] = defaultdict(set)   # iban -> vendor ids (current or historic)
         self.by_name: dict[str, str] = {}
+        self.ids_by_name: dict[str, set[str]] = defaultdict(set)  # normalised name -> vendor ids
         self.current_iban: dict[str, str | None] = {}
         for r in _records(ds, "vendors"):
             vid = _s(r["vendor_id"])
@@ -78,6 +79,7 @@ class _Vendors:
             n = norm_vendor(_s(r["name"]))
             if n:
                 self.by_name.setdefault(n, vid)
+                self.ids_by_name[n].add(vid)
         self.history: dict[str, list[dict]] = defaultdict(list)  # vendor -> changes, chronological
         for r in _records(ds, "vendor_bank_history"):
             vid, iban = _s(r["vendor_id"]), _iban(r["iban"])
@@ -95,6 +97,12 @@ class _Vendors:
             return sorted(ids)[0]
         n = norm_vendor(name)
         return self.by_name.get(n) if n else None
+
+    def linked_vendors(self, iban: str | None, name: str | None) -> set[str]:
+        """All vendors owning the counterparty IBAN (current or historic) or name."""
+        out = set(self.by_iban.get(iban, ())) if iban else set()
+        n = norm_vendor(name)
+        return out | self.ids_by_name.get(n, set()) if n else out
 
     def old_iban(self, vid: str, idx: int) -> str | None:
         rows = self.history[vid]
