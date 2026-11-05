@@ -39,6 +39,7 @@ def _columns(name: str) -> list[str]:
 class Dataset:
     tables: dict[str, pd.DataFrame]
     period_end: date
+    notes: list[str] = field(default_factory=list)  # ingest warnings shown as run notes
 
     def has(self, name: str) -> bool:
         return name in self.tables and not self.tables[name].empty

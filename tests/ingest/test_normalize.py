@@ -37,3 +37,21 @@ def test_norm_invoice_no(): assert norm_invoice_no("INV-00123") == norm_invoice_
 @pytest.mark.parametrize("fn,exp", [(parse_amount, None), (parse_date, None), (clean_iban, None),
     (norm_vendor, ""), (norm_invoice_no, "")])
 def test_pd_na_is_missing(fn, exp): assert fn(pd.NA) == exp
+
+
+@pytest.mark.parametrize("raw,exp", [("500.00-", -500.0), ("1.234,56-", -1234.56),
+                                     ("€ 75,00-", -75.0), ("-", None), ("1-2", None)])
+def test_parse_amount_trailing_minus(raw, exp): assert parse_amount(raw) == exp
+
+
+@pytest.mark.parametrize("raw,exp", [("31.10.26", date(2026, 10, 31)), ("01/02/69", date(2069, 2, 1)),
+                                     ("01/02/70", date(1970, 2, 1)), ("31-10-99", date(1999, 10, 31))])
+def test_parse_date_two_digit_year(raw, exp): assert parse_date(raw) == exp
+
+
+def test_parse_date_month_first():
+    assert parse_date("10/31/2026", "mdy") == date(2026, 10, 31)
+    assert parse_date("03/10/2026", "mdy") == date(2026, 3, 10)
+    assert parse_date("03/10/2026") == date(2026, 10, 3)
+    assert parse_date("2026-03-10", "mdy") == date(2026, 3, 10)  # ISO is unaffected
+    assert parse_date("31/10/2026", "mdy") is None

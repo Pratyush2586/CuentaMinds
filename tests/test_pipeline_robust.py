@@ -73,3 +73,14 @@ def test_failing_je_stage_still_exports(small_raw, tmp_path, monkeypatch):
     assert any(n.startswith("error in propose_journal_entries") for n in res.notes)
     assert res.journal_entries.empty and "je_id" in res.journal_entries.columns
     assert (res.run_dir / "findings.json").exists() and not res.payments.empty
+
+
+def test_ingest_notes_reach_run_notes(tmp_path):
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    (raw / "i.csv").write_text("id,d,g\nA,31/10/2026,10\nB,n/a,12\n", encoding="utf-8")
+    m = tmp_path / "m.yaml"
+    m.write_text("period_end: 2026-10-31\ntables:\n  invoices:\n    files: ['i.csv']\n"
+                 "    columns: {invoice_id: id, invoice_date: d, gross_amount: g}\n", encoding="utf-8")
+    res = run_close(raw, m, POLICY, tmp_path / "r")
+    assert res.notes[0] == "invoices.invoice_date: 1/2 unparsed"

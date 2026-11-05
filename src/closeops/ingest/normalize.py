@@ -33,6 +33,9 @@ def parse_amount(v) -> float | None:
     s = re.sub(r"[^\d.,+-]", "", s)  # drops currency symbols, spaces, parens
     if s.startswith("-"):
         negative = True
+    elif s.endswith("-"):  # SAP-style trailing minus: "500.00-"
+        negative = True
+        s = s[:-1]
     s = s.lstrip("+-")
     if not s or not re.search(r"\d", s) or "-" in s or "+" in s:
         return None
@@ -55,8 +58,12 @@ def parse_amount(v) -> float | None:
     return -n if negative else n
 
 
-def parse_date(v) -> date | None:
-    """Parse to a date; strings are day-first unless year-first. None if unparseable."""
+def parse_date(v, order: str = "dmy") -> date | None:
+    """Parse to a date; None if unparseable.
+
+    Year-first strings are ISO-like. Otherwise `order` says whether the first field is the
+    day ("dmy", default) or the month ("mdy"); two-digit years < 70 are 20yy, else 19yy.
+    """
     if _is_missing(v):
         return None
     if isinstance(v, datetime):  # includes pandas Timestamp
@@ -70,10 +77,13 @@ def parse_date(v) -> date | None:
     if m:
         y, mo, d = map(int, m.groups())
     else:
-        m = re.match(r"^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})(?:[T\s].*)?$", s)
+        m = re.match(r"^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4}|\d{2})(?:[T\s].*)?$", s)
         if not m:
             return None
-        d, mo, y = map(int, m.groups())
+        a, b, y = map(int, m.groups())
+        if len(m.group(3)) == 2:
+            y += 2000 if y < 70 else 1900
+        d, mo = (b, a) if order == "mdy" else (a, b)
     try:
         return date(y, mo, d)
     except ValueError:

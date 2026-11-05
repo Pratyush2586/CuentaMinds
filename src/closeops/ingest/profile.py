@@ -13,7 +13,7 @@ from closeops.ingest.normalize import parse_amount, parse_date
 
 log = logging.getLogger("closeops.ingest")
 
-CSV_SUFFIXES = {".csv", ".tsv"}
+CSV_SUFFIXES = {".csv", ".tsv", ".txt"}
 
 
 def _sniff_delimiter(text: str) -> str:
@@ -40,21 +40,26 @@ def _read_csv_text(text: str, path: Path) -> pd.DataFrame:
     return pd.DataFrame(keep, columns=header, index=idx, dtype=object).astype(str)
 
 
-def read_raw(path: Path, sheet: str | None = None) -> pd.DataFrame:
-    """Read a csv/xlsx/json file with every cell as a string ("" = missing).
+def read_raw(path: Path, sheet: str | None = None, skip_rows: int = 0) -> pd.DataFrame:
+    """Read a csv/txt/xlsx/json file with every cell as a stripped string ("" = missing).
 
-    The returned index is the physical position: add 2 for csv/xlsx line numbers
-    (header is line 1) or 1 for JSON record numbers.
+    `skip_rows` lines (csv/txt) or sheet rows (xlsx) before the header are ignored.
+    The returned index is the physical position: add 2 + skip_rows for csv/xlsx line
+    numbers (header is line 1 + skip_rows) or 1 for JSON record numbers.
     """
     suffix = path.suffix.lower()
+    skip_rows = int(skip_rows or 0)
     if suffix in CSV_SUFFIXES:
         try:
             text = path.read_text(encoding="utf-8-sig")
         except UnicodeDecodeError:
             text = path.read_text(encoding="cp1252", errors="replace")
+        if skip_rows:
+            text = "".join(text.splitlines(keepends=True)[skip_rows:])
         df = _read_csv_text(text, path)
     elif suffix in (".xlsx", ".xlsm"):
-        df = pd.read_excel(path, sheet_name=sheet if sheet else 0, dtype=str, keep_default_na=False)
+        df = pd.read_excel(path, sheet_name=sheet if sheet else 0, dtype=str, keep_default_na=False,
+                           skiprows=skip_rows)
     elif suffix == ".json":
         records = json.loads(path.read_text(encoding="utf-8-sig"))
         df = pd.DataFrame([{str(k): "" if v is None else str(v) for k, v in r.items()}
@@ -62,7 +67,7 @@ def read_raw(path: Path, sheet: str | None = None) -> pd.DataFrame:
     else:
         raise ValueError(f"unsupported file type: {path}")
     df.columns = [str(c).strip() for c in df.columns]
-    return df
+    return df.map(lambda v: v.strip() if isinstance(v, str) else v)
 
 
 def _guess_dtype(values: pd.Series) -> str:
@@ -97,19 +102,25 @@ def profile_dir(raw_dir: Path) -> str:
     raw_dir = Path(raw_dir)
     out = [f"# Profile of {raw_dir}", ""]
     pdfs = 0
+    skipped: list[str] = []  # every file not profiled, with the reason
     for path in sorted(p for p in raw_dir.rglob("*") if p.is_file()):
         rel = path.relative_to(raw_dir).as_posix()
         suffix = path.suffix.lower()
         try:
             if suffix == ".pdf":
                 pdfs += 1
+                skipped.append(f"- {rel}: PDF (not extracted)")
             elif suffix in (".xlsx", ".xlsm"):
                 for sheet in pd.ExcelFile(path).sheet_names:
                     out += [f"## {rel} [sheet: {sheet}]", ""]
                     out += _profile_frame(read_raw(path, sheet)) + [""]
             elif suffix in CSV_SUFFIXES | {".json"}:
                 out += [f"## {rel}", ""] + _profile_frame(read_raw(path)) + [""]
+            else:
+                skipped.append(f"- {rel}: unsupported file type {suffix or '(none)'}")
         except Exception as exc:  # profiling must never abort on one bad file
             out += [f"## {rel}", "", f"unreadable: {exc}", ""]
+            skipped.append(f"- {rel}: unreadable: {type(exc).__name__}: {exc}")
+    out += ["## Files not profiled", ""] + (skipped or ["none"]) + [""]
     out.append(f"PDF files: {pdfs}")
     return "\n".join(out) + "\n"

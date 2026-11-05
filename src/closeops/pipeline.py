@@ -54,7 +54,8 @@ def run_close(raw_dir: Path, mapping: Path, policy_path: Path, out_dir: Path,
     stage("ingest", {"tables": {n: int(len(df)) for n, df in sorted(ds.tables.items())},
                      "period_end": ds.period_end.isoformat()})
 
-    findings, side_tables, notes = run_checks(ds, policy)
+    findings, side_tables, check_notes = run_checks(ds, policy)
+    notes = list(ds.notes) + check_notes
     stage("checks", {"findings": len(findings), "notes": notes})
 
     assign_tiers(findings, policy)
