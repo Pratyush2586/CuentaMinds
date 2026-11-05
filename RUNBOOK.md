@@ -58,12 +58,54 @@ columns, then map that CSV like any other file. Budget 45 min; skip if < 10 % of
 
 ## 3. Mapping checklist
 
-A mapping is `period_end` plus, per canonical table: `files` (glob list), optional
-`sheet` (xlsx), `columns` (canonical → source header) and optional `defaults`
-(canonical → constant, e.g. `entity: "ACME01"` for a single-entity dataset). Unmapped
-canonical columns load empty; unmapped source columns are kept as `x_<name>`.
-Amount columns accept `1.234,56`, `1,234.56`, `21%`; dates accept dd/mm/yyyy,
+A mapping is `period_end` (plus optional `date_order`) and, per canonical table, one
+spec or a **list of specs** (one per file layout, e.g. one per bank). A spec has:
+
+| Key | Meaning |
+|---|---|
+| `files` | glob list, relative to the raw dir (`.csv`, `.tsv`, `.txt` delimited; `.xlsx`/`.xlsm`; `.json` records) |
+| `sheet` | xlsx sheet name (default: first sheet) |
+| `skip_rows: N` | lines (csv/txt) or sheet rows (xlsx) before the header, e.g. a bank preamble; `source_row` stays the physical line |
+| `columns` | canonical → source header |
+| `defaults` | canonical → constant, e.g. `entity: DE01` for a bank file without an entity column |
+| `date_order: dmy` / `mdy` | how `03/10/2026` reads (default `dmy`); the top-level value applies to every spec, a spec can override it |
+| `amount_from: {debit: <col>, credit: <col>}` | bank amount = credit − debit (money in positive, out negative); an empty side counts 0 |
+| `sign_col: <col>` + `sign_debit_values: [D, DR, "-"]` | amount made negative where the indicator matches (case-insensitive) |
+| `id_prefix_entity: true` | rewrite invoice_id / txn_id / je_id / po_id (and po_id on invoices and goods_receipts) as `<entity>:<id>`; goods_receipts has no entity column, so give it `columns: {entity: <col>}` or `defaults: {entity: ...}` |
+
+```yaml
+date_order: dmy
+tables:
+  bank_transactions:
+    - files: ["bank_DE01*.csv"]
+      skip_rows: 2
+      columns: {txn_id: "Ref", txn_date: "Buchungstag", counterparty_iban: "IBAN"}
+      amount_from: {debit: "Soll", credit: "Haben"}
+      defaults: {entity: DE01, currency: EUR}
+    - files: ["bank_US01*.txt"]
+      date_order: mdy
+      columns: {txn_id: "Id", txn_date: "Date", amount: "Amount", entity: "Company"}
+      sign_col: "D/C"
+      sign_debit_values: [D, DR]
+```
+
+Unmapped canonical columns load empty; unmapped source columns are kept as `x_<name>`.
+Every text cell is whitespace-stripped (` DE01 ` → `DE01`). Amount columns (including
+`qty_received` and `payment_terms_days`: `Net 30` → 30, `3 pcs` → 3) accept `1.234,56`,
+`1,234.56`, `21%`, `(500)`, `500.00-`; dates accept dd/mm/yyyy, dd.mm.yy (yy < 70 → 20yy),
 dd.mm.yyyy and ISO.
+
+Ingest notes (printed as `note:` lines by `closeops run`):
+
+- `invoices.invoice_date: 412/600 unparsed`: non-empty cells that did not parse (they
+  load empty). Fix the column mapping, `date_order` or the source before trusting that
+  check family.
+- `invoices.invoice_id: 12 ids repeat across entities ...`: two entities use the same id;
+  set `id_prefix_entity: true` on every table carrying those ids (invoices,
+  purchase_orders, goods_receipts, bank_transactions, gl_entries). Findings then carry
+  `DE01:<id>`; the event exporter must strip the prefix if the format wants source ids.
+- `closeops profile` ends with **Files not profiled**: every file it could not read
+  (unsupported type, broken file, PDFs), with the reason.
 
 ### Which columns each check needs
 
@@ -96,10 +138,10 @@ Baseline 95 tp / 0 fp / 0 fn. Each row drops one table or column from the mappin
 
 | Missing | Result (tp/fp/fn) | Effect |
 |---|---|---|
-| invoices.po_id (PO table present) | 95/**612**/0, P=0.13 | every invoice becomes `no_po`: **precision disaster** |
+| invoices.po_id (PO table present) | 72/0/23 | `no_po` skipped (`note: skipped no_po: po_id column empty`); PO price / qty checks cannot link, so they are lost. (Before the guard: 95/612/0.) |
 | gl_entries table | 93/**55**/2, P=0.63 | receipts and fees become `bank_unmatched`; intercompany lost |
 | accounts table, or no account typed `bank` | 95/**55**/0, P=0.63 | bank-rec GL pass is off: same fp flood. Map `type` or add `defaults` |
-| invoices.tax_rate | 87/**47**/8, P=0.65 | `tax_reverse_charge` fires on taxed domestic invoices |
+| invoices.tax_rate | 95/0/0 | rate derived as tax/net per file, snapped to a valid country rate within `tax.tolerance` (`note: tax: tax_rate empty in ...`); `tax_amount` is skipped there, wrong amounts show as `tax_rate`. (Before the guard: 87/47/8.) |
 | vendor_bank_history | 90/3/5 | all `iban_changed_before_payment` missed; old IBANs look unknown |
 | purchase_orders | 72/0/23 | all PO checks skipped (note printed) |
 | invoices.invoice_no | 73/0/22 | all invoice duplicate checks dead |
@@ -109,11 +151,12 @@ Baseline 95 tp / 0 fp / 0 fn. Each row drops one table or column from the mappin
 | service_period_end | 89/0/6 | cutoff dead |
 | gl counterparty_entity | 93/0/2 | intercompany dead |
 | goods_receipts / contracts / tax_rates / vendors | −5 / −5 / −4 / −3 recall | that check family skipped |
-| invoices.status | 95/0/0 but **453 payment proposals vs 296** | already-paid invoices proposed for payment again |
+| invoices.status | 95/0/0, 453 payment proposals vs 296, **all HOLD** (`status_unknown`) | without status, invoices not matched in the bank are proposed but never AUTO |
 | fx_rates, bank reference/name, invoices.entity, vendor_country | no change | (safe to skip under time pressure) |
 
 Rules of thumb: fp floods come from a *present table with a missing link column*
-(po_id, tax_rate, bank account type); recall losses come from missing tables. Any `note:
+(the bank account type is the one left unguarded); recall losses come from missing
+tables or link columns. Any `note:
 skipped ...` line in `closeops run` output is a check that did not run.
 
 ---
@@ -190,13 +233,20 @@ Tune on rules, never on specific rows. Re-run and log after each change.
 | tiers.auto_min_confidence / hold_below_confidence | 0.9 / 0.6 | (auto) fewer AUTO; (hold) more HOLD | the reverse |
 | tiers.auto_categories | duplicate, tax, match, bankrec | — | fraud is never AUTO; IBAN findings are always HOLD (hard rule in code) |
 | accounts.* | 4000/4720/... | account numbers used in proposed JEs: set to the event's chart of accounts | |
+| agents.max_residuals | 40 | more findings reviewed by agents (cost, time) | only the largest residuals by amount_eur go to agents; the rest keep the rule result (one note) |
+| agents.wall_clock_seconds | 300 | longer agent phase | no new agent calls after the budget; in-flight results still apply (one note) |
 
 ---
 
 ## 7. Demo script (3 min, spec §4.8)
 
-Setup before going on stage: `streamlit run dashboard/app.py`; sidebar **Raw data dir**
-= `data/demo` (or `results/demo/raw`), **Results dir** = `results` (or `results/demo`).
+Setup before going on stage: `git checkout -- results/demo` (undoes decisions or runs
+written there during rehearsal, so the committed evidence chain verifies), then
+`streamlit run dashboard/app.py`; sidebar **Raw data dir** = `data/demo` (or
+`results/demo/raw`), **Results dir** = `results` (or `results/demo`). Changing Results
+dir switches to the newest run there. The Evidence chain tile reads *verified*,
+*BROKEN* or *missing* (no evidence.jsonl in the run dir). Human approve / reject are
+logged with tier `HUMAN_APPROVED` / `HUMAN_REJECTED`.
 
 | Time | Say | Click |
 |---|---|---|
@@ -224,6 +274,13 @@ fresh `closeops synth data/demo --seed 7` regenerates the same data, so the ids 
   (its input). In the dashboard set Results dir = `results/demo`, Raw data dir =
   `results/demo/raw`; do **not** press Run close (that would write a new run there).
   `.gitattributes` keeps those bytes exact so the evidence chain still verifies.
+  Approving / rejecting there writes into the committed run: `git checkout -- results/demo`
+  restores it.
+- **A stage fails on the day**: proposals, evidence logging and amount fills are guarded;
+  a failure prints `note: error in <stage>: ...` and the findings still export (empty JE /
+  payment files). Fix the cause, re-run.
+- **Agents misbehave**: a bad request or unknown model trips the breaker like a missing
+  key (`note: agents unavailable: ...`); the result is rules-only.
 - **Mapping trouble on the day**: map only invoices + bank_transactions + vendors first
   (covers duplicates, tax math, IBAN checks), submit, then add tables one by one.
 - **Exporter trouble**: submit `findings.csv` from the run dir after renaming columns
@@ -284,10 +341,10 @@ are outside the score, or are mapping-dependent:
 | Check / area | Example | Suggested fix |
 |---|---|---|
 | bank reconciliation (`exact` pass) on recurring billing | hard seed 2026: Oct standing order for Sep invoice D100224 (3,476.69, no invoice no. in reference) was matched to the Oct invoice D100437 (same gross, nearest date). D100224 shows unmatched, D100437 shows paid. | When several open invoices of the linked vendor have the same amount, prefer the oldest open one (FIFO) or leave it to the Reconciler agent instead of nearest-date. |
-| payment proposals without `invoices.status` | Same data with `status` unmapped: 453 proposals instead of 296. Every invoice settled before the statement period looks open, and D100224 (already paid) is proposed AUTO. | Without status, treat invoices whose due date is before the first bank date as settled, and use the GL AP clearing; flag it as a note. |
+| payment proposals without `invoices.status` | Same data with `status` unmapped: 453 proposals instead of 296; every invoice settled before the statement period looks open. Guarded: all are HOLD `status_unknown`, none AUTO. | Treat invoices whose due date is before the first bank date as settled, and use the GL AP clearing, to shrink the HOLD list. |
 | bank_unmatched (GL pass) depends on `accounts.type == "bank"` | Unmapped accounts table → 55 fps (receipts, fees). | Fall back to accounts named/typed like cash/bank, or the GL rows that mirror the bank amount on the same day. |
-| no_po when `invoices.po_id` is unmapped | 612 fps (every invoice). | Skip `no_po` (with a note) when the po_id column is entirely empty. |
-| tax_reverse_charge when `invoices.tax_rate` is unmapped | 47 fps. | Derive the rate as tax/net when the rate column is empty. |
+| no_po when `invoices.po_id` is unmapped | Guarded: `no_po` skipped with a note (was 612 fps). PO price / qty checks still need the link. | Map po_id, or match invoice → PO by vendor + item + amount. |
+| tax when `invoices.tax_rate` is unmapped | Guarded: rate derived as tax/net (was 47 fps). `tax_amount` cannot fire on derived rows. | Map tax_rate when it exists. |
 | hard thresholds | Boundary traps sit 0.5 % / 1 day / 2 days from the policy limits. If the benchmark's tolerances differ, whole check families flip. | Read tolerances from the brief and set them in `policy.yaml` first thing; log the change. |
 | duplicates (unstressed) | Sequential numbers (`RE-02681`, `RE-02682`) have similarity ≥ 85 and the same gross; only the 7-day window keeps monthly billing out of `dup_near`. A weekly recurring vendor would be flagged. | Require the date gap ≠ the vendor's usual billing interval, or exclude when the numbers are consecutive integers. |
 
