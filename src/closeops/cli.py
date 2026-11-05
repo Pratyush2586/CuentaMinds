@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -23,7 +24,7 @@ def _cmd_profile(a) -> int:
 
 
 def _cmd_synth(a) -> int:
-    print(generate(Path(a.out_dir), seed=a.seed, n_invoices=a.n))
+    print(generate(Path(a.out_dir), seed=a.seed, n_invoices=a.n, hard=a.hard))
     return 0
 
 
@@ -34,11 +35,13 @@ def _cmd_run(a) -> int:
     summary = ", ".join(f"{t}={tiers.get(t, 0)}" for t in ("AUTO", "AUTO_NOTE", "HOLD"))
     print(res.run_dir)
     print(f"{len(res.findings)} findings ({summary})")
+    for n in res.notes:
+        print(f"note: {n}")
     return 0
 
 
 def _row(label: str, m: dict) -> str:
-    return (f"{label:<28} {m['precision']:>9.3f} {m['recall']:>7.3f} {m['f1']:>7.3f} "
+    return (f"{label:<30} {m['precision']:>9.3f} {m['recall']:>7.3f} {m['f1']:>7.3f} "
             f"{m['tp']:>5} {m['fp']:>5} {m['fn']:>5}")
 
 
@@ -47,10 +50,13 @@ def _cmd_score(a) -> int:
     findings = json.loads((run_dir / "findings.json").read_text(encoding="utf-8"))
     key = json.loads(Path(a.answer_key).read_text(encoding="utf-8"))
     res = score(findings, key)
-    print(f"{'':<28} {'precision':>9} {'recall':>7} {'f1':>7} {'tp':>5} {'fp':>5} {'fn':>5}")
+    print(f"{'':<30} {'precision':>9} {'recall':>7} {'f1':>7} {'tp':>5} {'fp':>5} {'fn':>5}")
     print(_row("overall", res["overall"]))
     for cat, m in res["by_category"].items():
         print(_row(f"  {cat}", m))
+    print("by check:")
+    for chk, m in res["by_check"].items():
+        print(_row(f"  {chk}", m))
     o = res["overall"]
     board = Path.cwd() / SCOREBOARD
     note = a.note.replace("|", "/")
@@ -65,6 +71,10 @@ def _cmd_score(a) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Piped/redirected output would otherwise use the Windows code page (cp1252) and
+    # crash on names outside it; always emit UTF-8.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(prog="closeops")
     sub = p.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("profile", help="profile raw files as markdown")
@@ -74,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("out_dir")
     s.add_argument("--seed", type=int, default=7)
     s.add_argument("--n", type=int, default=600)
+    s.add_argument("--hard", action="store_true",
+                   help="add boundary traps/decoys and recurring billing (measurement set)")
     s.set_defaults(fn=_cmd_synth)
     s = sub.add_parser("run", help="run the close")
     s.add_argument("raw_dir")

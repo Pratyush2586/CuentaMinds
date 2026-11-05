@@ -48,6 +48,12 @@ TRAP_COUNTS = {
     "qty_over_received": 5, "no_po": 6, "bank_unmatched": 8,
     "intercompany_mismatch": 2, "cutoff": 6,
 }
+# Extra key entries in hard mode: a 2.5 % PO price variance (tolerance 2 %), an exact and
+# a near duplicate 6 days after the original (window 7), an IBAN change 28 days before
+# payment (window 30).
+HARD_TRAP_COUNTS = {"po_price_mismatch": 2, "dup_exact": 1, "dup_near": 1,
+                    "iban_changed_before_payment": 1}
+RECURRING_ITEMS = [("Office rent", "6100"), ("Cloud hosting", "6300"), ("Software licence", "6300")]
 CATEGORY = {
     "dup_exact": "duplicate", "dup_near": "duplicate", "dup_cross_entity": "duplicate",
     "dup_payment": "duplicate", "tax_math": "tax", "tax_amount": "tax", "tax_rate": "tax",
@@ -282,9 +288,10 @@ def _stable_xlsx(data: bytes) -> bytes:
 
 
 class _Builder:
-    def __init__(self, seed: int, n_invoices: int):
+    def __init__(self, seed: int, n_invoices: int, hard: bool = False):
         self.rng = random.Random(seed)
         self.n = n_invoices
+        self.hard = hard
         self.vendors: list[Vendor] = []
         self.invoices: list[Inv] = []
         self.lines: list[Line] = []
@@ -948,6 +955,98 @@ class _Builder:
                 self.fx.append((d, rate))
             d += timedelta(days=1)
 
+    # -- hard mode: boundary cases and recurring billing ---------------------------
+    def _hard_boundaries(self) -> None:
+        """Traps just inside a policy threshold and decoys just outside it."""
+        rng = self.rng
+
+        def no_contract(i: Inv) -> bool:
+            return (i.vendor.id, i.item) not in self.contract_items
+
+        for _ in range(HARD_TRAP_COUNTS["po_price_mismatch"]):  # 2.5 % vs a 2 % tolerance
+            inv = self._take("po_price_mismatch", lambda i: no_contract(i) and i.price >= 20)
+            inv.po_price = round(inv.price / 1.025, 2)
+            self.key.append(("po_price_mismatch", inv))
+        for _ in range(2):  # decoy: 1.9 %, just inside the tolerance
+            inv = self._take("decoy_variance", lambda i: no_contract(i) and i.price >= 20)
+            inv.po_price = round(inv.price / 1.019, 2)
+
+        def dup_source(i: Inv) -> bool:
+            return i.vendor.role == "base" and i.gross < 4500
+
+        def six_days(o: Inv) -> date | None:
+            d = o.date + timedelta(days=6)  # one day inside the 7-day duplicate window
+            return d if d.weekday() < 5 else None
+
+        def exact(o: Inv) -> Inv | None:
+            d = six_days(o)
+            return None if d is None else self._clone(o, date=d)
+
+        def near(o: Inv) -> Inv | None:
+            d, no = six_days(o), self._near_no(o)
+            return None if d is None or no is None else self._clone(o, date=d, no=no)
+
+        for _ in range(HARD_TRAP_COUNTS["dup_exact"]):
+            self._plant_copy("dup_exact", dup_source, exact)
+        for _ in range(HARD_TRAP_COUNTS["dup_near"]):
+            self._plant_copy("dup_near", dup_source, near)
+
+        cands = self._change_candidates()
+        rng.shuffle(cands)
+        planted = 0
+        for v, lines in cands:  # IBAN changed 28 days before payment (window: 30)
+            if planted == HARD_TRAP_COUNTS["iban_changed_before_payment"]:
+                break
+            last = lines[-1]
+            if len(lines) > 1 and (last.date - lines[-2].date).days <= 28:
+                continue
+            last.iban = self._bank_change(v, last.date - timedelta(days=28))
+            last.tags.add("iban_changed")
+            self.reserved.add(v.id)
+            self.key.append(("iban_changed_before_payment", last))
+            planted += 1
+        if planted < HARD_TRAP_COUNTS["iban_changed_before_payment"]:
+            raise RuntimeError("not enough vendors for the 28-day IBAN change")
+        v, lines = rng.choice(self._change_candidates())  # decoy: 35 days, outside the window
+        new = self._bank_change(v, lines[0].date - timedelta(days=35))
+        for ln in lines:
+            ln.iban = new
+            ln.tags.add("decoy_old_change")
+        self.reserved.add(v.id)
+
+    def _hard_recurring(self) -> None:
+        """Decoy: vendors billing the same gross every month with sequential numbers."""
+        rng = self.rng
+        for e, (item, account) in zip(ENTITIES, RECURRING_ITEMS):
+            v = self._vendor(ENTITIES[e], [e], "domestic", role="recurring")
+            v.terms = 30
+            rate = STANDARD_VAT[ENTITIES[e]]
+            while True:
+                net = round(rng.uniform(800, 6000), 2)
+                tax = round(net * rate / 100, 2)
+                gross = round(net + tax, 2)
+                if self._amount_free(gross):
+                    self._use(gross)
+                    break
+            ref = rng.choice(["Standing order", "Monthly " + item.lower(), ""])
+            for month in (8, 9, 10):
+                d = _weekday(date(2026, month, 1))
+                v.next_no += 1
+                spe = date(2026, month + 1, 1) - timedelta(days=1)
+                inv = Inv(seq=self._seq(), entity=e, vendor=v, no=f"{v.prefix}-{v.next_no:05d}",
+                          date=d, spe=spe, item=item, account=account, qty=1, price=net,
+                          currency="EUR", net=net, rate=rate, tax=tax, gross=gross,
+                          has_gr=False, role="recurring", tags={"recurring"})
+                self.invoices.append(inv)
+                due = _weekday(d + timedelta(days=v.terms))
+                if due < PERIOD_START:
+                    inv.status = "paid"
+                elif due <= LAST_BANK_DAY:
+                    inv.status, inv.pay_date = "paid", due
+                    ln = self._pay_line(inv, due)
+                    ln.ref_fmt = ref  # standing order: no invoice number in the reference
+                    self.lines.append(ln)
+
     def build(self) -> None:
         self._fx_table()
         self._vendors_and_invoices()
@@ -958,6 +1057,9 @@ class _Builder:
         self._added_invoices()
         self._other_lines()
         self._history_noise()
+        if self.hard:
+            self._hard_boundaries()
+            self._hard_recurring()
         self._assign_ids()
         self._build_gl()
 
@@ -1068,17 +1170,19 @@ class _Builder:
         return _stable_xlsx(buf.getvalue())
 
 
-def generate(out_dir: Path, seed: int = 7, n_invoices: int = 600) -> Path:
+def generate(out_dir: Path, seed: int = 7, n_invoices: int = 600, hard: bool = False) -> Path:
     """Write the synthetic raw files and answer_key.json into out_dir; return out_dir.
 
     n_invoices is the number of base invoices; trap copies, split clusters, accruals and
-    credit notes are added on top.
+    credit notes are added on top. hard=True adds boundary traps (HARD_TRAP_COUNTS, in
+    the key) and boundary / recurring-billing decoys (not in the key); it is a
+    measurement set, not a tuning target. hard=False output is unchanged by it.
     """
     if n_invoices < MIN_INVOICES:
         raise ValueError(f"n_invoices must be at least {MIN_INVOICES}, got {n_invoices}")
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    builder = _Builder(seed, n_invoices)
+    builder = _Builder(seed, n_invoices, hard)
     builder.build()
     builder.write(out)
     return out

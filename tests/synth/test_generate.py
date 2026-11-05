@@ -67,3 +67,26 @@ def test_same_seed_identical_files(tmp_path):
 def test_too_few_invoices_rejected(tmp_path):
     with pytest.raises(ValueError):
         generate(tmp_path, n_invoices=199)
+
+
+HARD_EXTRA = {"po_price_mismatch": 2, "dup_exact": 1, "dup_near": 1,
+              "iban_changed_before_payment": 1}
+
+
+def test_hard_mode_loads_with_extra_traps_and_is_deterministic(tmp_path):
+    a, b, normal = tmp_path / "a", tmp_path / "b", tmp_path / "n"
+    generate(a, seed=11, n_invoices=200, hard=True)
+    generate(b, seed=11, n_invoices=200, hard=True)
+    generate(normal, seed=11, n_invoices=200)
+    assert _hashes(a) == _hashes(b)
+    assert _hashes(a) != _hashes(normal)
+    ds = load_dataset(a, MAPPING)
+    assert sorted(ds.tables) == sorted(CANONICAL)
+    key = json.loads((a / "answer_key.json").read_text(encoding="utf-8"))
+    assert Counter(e["check"] for e in key) == Counter(EXPECTED) + Counter(HARD_EXTRA)
+    assert len({(e["check"], e["record_id"]) for e in key}) == len(key)
+    # recurring decoy: some vendor bills one gross amount in three different months
+    inv = ds.table("invoices")
+    months = inv.groupby(["vendor_id", "gross_amount"])["invoice_date"].apply(
+        lambda s: len({d.month for d in s}))
+    assert (months >= 3).sum() >= 2
