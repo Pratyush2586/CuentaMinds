@@ -122,3 +122,25 @@ def test_gl_pass_matches_incoming_receipt(make_ds, policy):
 def test_no_bank_table(make_ds, policy):
     m, f = reconcile_bank(make_ds(), policy)
     assert list(m.columns) == COLS and m.empty and f == []
+
+
+def test_null_amount_and_date_lines_do_not_crash(make_ds, policy):
+    ds = make_ds(vendors=[V("V1", "DE111")],
+                 invoices=[inv("I1", "V1", "A1", "2026-10-01", 100.0)],
+                 bank_transactions=[txn("T1", "2026-10-04", None, "DE111"),
+                                    {**txn("T2", "2026-10-04", -100.0, "DE111"), "txn_date": None}])
+    m, f = reconcile_bank(ds, policy)
+    assert m.empty
+    assert [(x.record_ids, x.amount_eur) for x in f] == [(["T1"], 0.0), (["T2"], 100.0)]
+    assert f[1].evidence["txn_date"] is None
+
+
+def test_fx_converts_both_sides_at_txn_date_rate(make_ds, policy):
+    ds = make_ds(vendors=[V("V1", "US111")],
+                 invoices=[inv("I1", "V1", "A1", "2026-08-01", 1000.0, currency="USD")],
+                 bank_transactions=[txn("T1", "2026-10-15", -920.0, "US111")],
+                 fx_rates=[{"date": date(2026, 8, 1), "currency": "USD", "rate_to_eur": 0.80},
+                           {"date": date(2026, 10, 15), "currency": "USD", "rate_to_eur": 0.92}])
+    m, f = reconcile_bank(ds, policy)
+    assert _rows(m) == [("T1", ["I1"], "fx", 0.75)]
+    assert f == []

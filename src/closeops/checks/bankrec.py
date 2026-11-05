@@ -230,6 +230,7 @@ class _Matcher:
         return best
 
     def _fx_match(self, ln: _Line) -> _Inv | None:
+        """Both sides convert to EUR at the rate for the txn date (nearest on or before)."""
         bank_rate = self.fx.rate(ln.currency, ln.date)
         if bank_rate is None:
             return None
@@ -239,7 +240,7 @@ class _Matcher:
         for i in self._open(ln):
             if i.currency == ln.currency or (linkable and not self._linked(ln, i)):
                 continue
-            rate = self.fx.rate(i.currency, i.date)
+            rate = self.fx.rate(i.currency, ln.date)
             if rate is None:
                 continue
             inv_eur = abs(i.gross) * rate
@@ -261,8 +262,8 @@ class _Matcher:
         for entity in sorted(by_entity):
             for method, find in passes:
                 for ln in by_entity[entity]:
-                    if ln.id in self.matches:
-                        continue
+                    if ln.id in self.matches or ln.date is None or not ln.amount:
+                        continue  # null date/amount lines cannot match an invoice
                     hit = find(ln)
                     if hit:
                         self._record(ln, hit if isinstance(hit, list) else [hit], method)
