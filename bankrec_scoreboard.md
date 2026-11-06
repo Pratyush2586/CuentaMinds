@@ -11,3 +11,5 @@
 | 2026-11-06 19:57 | sample | submissions\sample_v9.csv.gz | 80.68 | v9 speed (lists, cached name weights, subset pruning) |
 | 2026-11-06 20:00 | sample | submissions\sample_v10.csv.gz | 84.03 | v10 explained single, credit refunds, UNIDENTIFIED only for unknown payers |
 | 2026-11-06 20:01 | sample | submissions\sample_v11.csv.gz | 84.41 | v11 stricter known-payer for UNIDENTIFIED |
+| 2026-11-06 20:02 | sample | submissions\sample_v12.csv.gz | 85.19 | v12 FX advices by original amount |
+| 2026-11-06 20:05 | sample | submissions\sample_v13.csv.gz | 85.12 | v13 advice lines gross -deduction without paid column |

@@ -174,6 +174,8 @@ class Engine:
 
     def find_advice(self, txn: dict, blob: str) -> int | None:
         amt = round(float(txn["amount"]) * 100)
+        if txn.get("orig_currency") and txn.get("orig_amount") == txn.get("orig_amount"):
+            amt = round(abs(float(txn["orig_amount"])) * 100)   # FX: the advice is in the invoice currency
         cands = []
         btoks = set(tokens(blob))
         for tok in btoks:
@@ -212,6 +214,9 @@ class Engine:
             seen.add(k)
             nums = ln["nums"]
             paid, gross = abs(nums[-1]), abs(nums[0])
+            if len(nums) == 2 and nums[0] > 0 > nums[1]:  # "gross  -deduction  reason" without a paid column
+                paid = round(nums[0] + nums[1], 2)
+                nums = [nums[0], nums[1], paid]
             open_ = self.open[k] if self.open[k] > CENT else self.total[k]
             fx = self.ccy[k] != txn["currency"]
             if self.is_credit(k):
