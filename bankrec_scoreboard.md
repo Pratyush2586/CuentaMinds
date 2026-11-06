@@ -15,3 +15,4 @@
 | 2026-11-06 20:05 | sample | submissions\sample_v13.csv.gz | 85.12 | v13 advice lines gross -deduction without paid column |
 | 2026-11-06 20:06 | sample | submissions\sample_v14.csv.gz | 85.21 | v14 due-date prefix, zero-stripped suffixes |
 | 2026-11-06 20:08 | sample | submissions\sample_v15.csv.gz | 85.32 | v15 no future-dated candidates, complement subset |
+| 2026-11-06 20:09 | sample | submissions\sample_v16.csv.gz | 86.55 | v16 returns via DD batch mandate rows, DEVOL. |

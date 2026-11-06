@@ -74,6 +74,10 @@ class Engine:
         self._fx = self._fx_table()
         self._parties()
         self._advice_index()
+        self.dd_by_mandate: dict[str, list[tuple]] = defaultdict(list)
+        if len(data.dd):
+            for r in data.dd[["mandate_id", "collection_date", "amount", "remittance_info", "batch_id"]].itertuples(index=False):
+                self.dd_by_mandate[r.mandate_id].append((r.collection_date, float(r.amount), r.remittance_info, str(r.batch_id)))
         self._nw_cache: dict[str, list[float]] = {}
 
     # ------------------------------------------------------------------ helpers
@@ -674,15 +678,27 @@ class Engine:
 
     def try_return(self, txn: dict, blob: str) -> bool:
         """Returned direct debit (mandate) or cheque: re-open the collected item."""
-        if not re.search(r"DEVOLUCION RECIBO|RUECKLASTSCHRIFT|IMPAYE|RETURN|R-TRANS|CHARGEBACK|RETOUR|DEVUELTO|"
-                         r"UNPAID|IMPAGADO|RECHAZ", blob):
+        if not re.search(r"DEVOL|RUECKLASTSCHRIFT|R.CKLASTSCHRIFT|IMPAYE|RETURN|R-TRANS|CHARGEBACK|RETOUR|DEVUELTO|"
+                         r"UNPAID|IMPAGADO|RECHAZ|REJECT|STORNO", blob):
             return False
         amount = abs(float(txn["amount"]))
         t = txn["bank_txn_id"]
         m = re.search(r"VTM-[A-Z]{2}-\d+", blob)
+        mandate = m.group(0) if m else ""
+        # 1) the collection itself: same mandate and amount in a direct-debit batch (batch named in the text first)
+        if mandate and mandate in self.dd_by_mandate:
+            rows = [r for r in self.dd_by_mandate[mandate]
+                    if abs(r[1] - amount) <= 0.01 and r[0] <= txn["booking_date"]]
+            if rows:
+                named = [r for r in rows if r[3] and (r[3] in blob or r[3][1:] in blob)]
+                r = max(named or rows, key=lambda r: r[0])
+                k = self._dd_item(r[2], txn["entity"], amount, self.mandate_party.get(mandate))
+                if k is not None:
+                    self.emit(t, [Row(self.ids[k], round(amount, 2), "", "RETURNED")], "return")
+                    return True
         parties = set()
-        if m and m.group(0) in self.mandate_party:
-            parties.add(self.mandate_party[m.group(0)])
+        if mandate in self.mandate_party:
+            parties.add(self.mandate_party[mandate])
         if not parties:
             parties = self.identify_party(txn, blob)
         for k in self.ref_items(dict(txn, amount=1.0), blob):
@@ -699,6 +715,15 @@ class Engine:
             self.emit(t, [Row(self.ids[best], round(amount, 2), "", "RETURNED")], "return")
             return True
         return False
+
+    def _dd_item(self, ref: str, entity: str, amount: float, party: str | None) -> int | None:
+        for tok in [norm(ref)] + [norm(x) for x in ref.split()]:
+            hits = [k for k in self.docidx.lookup(tok) if self.kind[k] == "ARI"]
+            if hits:
+                return min(hits, key=lambda k: (self.entity[k] != entity, abs(self.total[k] - amount) > 0.01))
+        if party:
+            return self.party_item({party}, "AR", amount, digits(ref))
+        return None
 
     def known_payer(self, txn: dict) -> bool:
         """A customer clearly named in the line (full name coverage) who has open receivables."""
