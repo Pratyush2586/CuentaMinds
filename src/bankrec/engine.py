@@ -26,6 +26,7 @@ FX_TOL = 0.03                 # bank spread is always well within 3 %
 WITHHOLDING_RATES = (0.0125, 0.015, 0.10)
 WITHHOLDING_COUNTRIES = {"MX", "BR", "MA"}
 MAX_SUBSET_ITEMS = 40
+OVERPAY_ROUND = {1.0, 2.0, 5.0, 10.0, 20.0, 25.0, 50.0, 100.0, 200.0, 250.0, 500.0, 1000.0}
 
 
 @dataclass
@@ -643,7 +644,8 @@ class Engine:
             if len([k for k in quoted if not self.is_credit(k)]) == 1:
                 attempts.append(lambda: self.settle(txn, quoted, force_single=True))
         attempts += [lambda: self._settle_sub(txn, cands), lambda: self.settle_fx(txn, cands),
-                     lambda: self._explained_single(txn, cands)]
+                     lambda: self._explained_single(txn, cands), lambda: self._withholding_multi(txn, cands),
+                     lambda: self._overpaid_single(txn, quoted or cands)]
         for f in attempts:
             r = f()
             if r is not None:
@@ -659,6 +661,39 @@ class Engine:
             r = self.settle(txn, [k], force_single=True)
             if r is not None and r[0].exception in ok:
                 return r
+        return None
+
+    def _overpaid_single(self, txn: dict, cands: list[int]) -> list[Row] | None:
+        """The customer paid a little more than one open invoice (smallest excess wins)."""
+        if txn["currency"] != (self.ccy[cands[0]] if cands else ""):
+            return None
+        cash = abs(float(txn["amount"]))
+        best = None
+        for k in cands:
+            if self.is_credit(k) or self.ccy[k] != txn["currency"]:
+                continue
+            ex = round(cash - self.open[k], 2)
+            # observed overpayments: a round amount, or exactly 1 % / 10 % of the invoice
+            sig = ex in OVERPAY_ROUND or any(abs(ex - round(self.open[k] * r, 2)) <= 0.01 for r in (0.01, 0.10))
+            if ex > 0.005 and sig and (best is None or ex < cash - self.open[best]):
+                best = k
+        if best is None:
+            return None
+        return [Row(self.ids[best], round(self.open[best], 2), "", "OVERPAYMENT")]
+
+    def _withholding_multi(self, txn: dict, cands: list[int]) -> list[Row] | None:
+        """Several invoices each paid net of the same tax withholding rate (MX/BR/MA customers)."""
+        inv = [k for k in cands if not self.is_credit(k) and self.cust_country.get(self.party[k]) in WITHHOLDING_COUNTRIES
+               and self.ccy[k] == txn["currency"]]
+        if len(inv) < 2:
+            return None
+        target = round(abs(float(txn["amount"])) * 100)
+        for rate in WITHHOLDING_RATES:
+            vals = [round((self.open[k] - round(self.total[k] * rate, 2)) * 100) for k in inv]
+            pick = _subset_count(vals, target, None, cap=60_000)
+            if pick and len(pick) >= 2:
+                return [Row(self.ids[inv[i]], round(self.open[inv[i]], 2), "", "SHORT_WITHHOLDING")
+                        for i in sorted(pick, key=lambda i: self.ids[inv[i]])]
         return None
 
     def try_credit_refund(self, txn: dict, blob: str) -> bool:

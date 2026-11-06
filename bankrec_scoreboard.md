@@ -20,3 +20,5 @@
 | 2026-11-06 20:10 | live | submissions\live_v1.csv.gz | valid (no golden: upload to score) | LIVE v1 = sample v9 engine |
 | 2026-11-06 20:12 | sample | submissions\sample_v18.csv.gz | 88.7 | v18 service month for same-amount invoices |
 | 2026-11-06 20:13 | sample | submissions\sample_v18.csv.gz | 88.84 | v18 service month for same-amount invoices |
+| 2026-11-06 20:14 | sample | submissions\sample_v19.csv.gz | 88.9 | v19 overpaid single, multi-invoice withholding |
+| 2026-11-06 20:15 | sample | submissions\sample_v20.csv.gz | 90.78 | v20 overpayment signature (round / 1% / 10%) |
