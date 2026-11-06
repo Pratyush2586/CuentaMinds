@@ -2,6 +2,7 @@
 
 How to install, test, run, look at the results, and evaluate the autonomous finance close.
 For the build-day timeline and demo script, see `RUNBOOK.md`.
+New to the project? Start with `docs/GETTING_STARTED.md`: install, start/stop, housekeeping and troubleshooting, step by step.
 
 All commands are run from the repo root (`nova7nov/`) in Git Bash or PowerShell on Windows.
 `C=.venv/Scripts/closeops` below is shorthand. In PowerShell use `.venv\Scripts\closeops`.
