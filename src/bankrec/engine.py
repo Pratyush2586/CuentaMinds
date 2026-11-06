@@ -57,6 +57,9 @@ class Engine:
         self.issue = it.issue_date.tolist()
         self.terms = it.payment_terms.tolist()
         self.doc = it.doc.tolist()
+        self.po = it.po.tolist()
+        self.doc_norm = [norm(x) for x in self.doc]
+        self.doc_digits = [digits(x) for x in self.doc]
         self.pos = {i: k for k, i in enumerate(self.ids)}
         self.docidx = DocIndex(self.doc)
         self.by_party: dict[str, list[int]] = defaultdict(list)
@@ -70,6 +73,7 @@ class Engine:
         self._fx = self._fx_table()
         self._parties()
         self._advice_index()
+        self._nw_cache: dict[str, list[float]] = {}
 
     # ------------------------------------------------------------------ helpers
     def _fx_table(self):
@@ -137,7 +141,7 @@ class Engine:
         import math
         self.idf = {k: math.log(1 + n_ent[k[0]] / len(v)) for k, v in self.word_parties.items()}
         self.po_index: dict[str, list[int]] = defaultdict(list)
-        for k, po in enumerate(self.items.po):
+        for k, po in enumerate(self.items.po.tolist()):
             if po:
                 self.po_index[norm(po)].append(k)
 
@@ -394,10 +398,8 @@ class Engine:
         for p, m in matched.items():
             e = self.party_entity.get(p, "")
             best_cov = 0.0
-            for n in self.party_names.get(p, ()):
-                tot = sum(self.idf.get((e, w), 0.0) for w in n.split() if len(w) >= 3)
-                if tot:
-                    best_cov = max(best_cov, min(1.0, m / tot))
+            for tot in self._name_weights(p, e):
+                best_cov = max(best_cov, min(1.0, m / tot))
             if best_cov >= 0.6:
                 scored.append((best_cov, m, p))
         scored.sort(reverse=True)
@@ -406,13 +408,21 @@ class Engine:
                 out.append(p)
         return out
 
+    def _name_weights(self, p: str, e: str) -> list[float]:
+        w = self._nw_cache.get(p)
+        if w is None:
+            w = [t for t in (sum(self.idf.get((e, x), 0.0) for x in n.split() if len(x) >= 3)
+                             for n in self.party_names.get(p, ())) if t]
+            self._nw_cache[p] = w
+        return w
+
     def party_refs(self, txn: dict, blob: str, ks: list[int]) -> list[int]:
         """Items among ks quoted in the text: suffix of our number, truncated number, or the customer's PO."""
         toks = set(tokens(blob))
         dig = {digits(t) for t in toks if len(digits(t)) >= 4}
         hit = []
         for k in ks:
-            dn, dd, po = norm(self.doc[k]), digits(self.doc[k]), norm(self.items.po.iat[k])
+            dn, dd, po = self.doc_norm[k], self.doc_digits[k], norm(self.po[k]) if self.po[k] else ""
             if dn in toks or (po and po in toks) or any(len(t) >= 7 and dn.startswith(t) for t in toks) \
                     or any(dd.endswith(x) and len(x) >= 5 for x in dig):
                 hit.append(k)
@@ -458,6 +468,9 @@ class Engine:
             run += v
             if run == target:
                 return ks[: i + 1]
+        neg = -sum(v for v in vals if v < 0)
+        keep = [i for i, v in enumerate(vals) if v <= target + neg]   # an item bigger than the cash cannot be in
+        ks, vals = [ks[i] for i in keep], [vals[i] for i in keep]
         if len(ks) > MAX_SUBSET_ITEMS:
             ks, vals = ks[:MAX_SUBSET_ITEMS], vals[:MAX_SUBSET_ITEMS]
         neg = -sum(v for v in vals if v < 0)
@@ -476,7 +489,7 @@ class Engine:
                         return out[::-1]
                     out.append(ks[j])
                     s = prev
-            if len(back) > 150_000:
+            if len(back) > 60_000:
                 break
         return None
 
