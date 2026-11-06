@@ -370,12 +370,15 @@ class Engine:
                 found.append(k)
         return found
 
-    def rank_parties(self, txn: dict, blob: str, top: int = 6) -> list[str]:
-        """Parties named in the line, best first: IBAN, then rare-word coverage of the party name."""
+    def rank_parties(self, txn: dict, blob: str, top: int = 6, scores: dict | None = None) -> list[str]:
+        """Parties named in the line, best first: IBAN, then rare-word coverage of the party name.
+        `scores`, when given, receives party -> name coverage (IBAN = 1.0)."""
         out: list[str] = []
         acct = norm(txn.get("counterparty_account", ""))
         if acct and acct in self.iban_party:
             out.append(self.iban_party[acct])
+            if scores is not None:
+                scores[out[0]] = 1.0
         ent = txn["entity"]
         ents = [ent, "ES01", "ES02", "PT01"] if ent == "ES00" else [ent]
         src = fold(txn.get("counterparty_name", "")) + " " + blob
@@ -403,9 +406,11 @@ class Engine:
             if best_cov >= 0.6:
                 scored.append((best_cov, m, p))
         scored.sort(reverse=True)
-        for _, _, p in scored[:top]:
+        for cov, _, p in scored[:top]:
             if p not in out:
                 out.append(p)
+                if scores is not None:
+                    scores[p] = cov
         return out
 
     def _name_weights(self, p: str, e: str) -> list[float]:
@@ -543,6 +548,7 @@ class Engine:
             if r is not None:
                 self.emit(t, r, "party")
                 return
+        self.try_credit_refund(txn, blob)
 
     def resolve_for(self, txn: dict, blob: str, fam: set[str], seed: list[int]) -> list[Row] | None:
         """Settle the line against the open items of one payer family, quoted items first."""
@@ -561,12 +567,43 @@ class Engine:
                          lambda: self._gap_fill(txn, quoted, [k for k in cands if k not in quoted])]
             if len([k for k in quoted if not self.is_credit(k)]) == 1:
                 attempts.append(lambda: self.settle(txn, quoted, force_single=True))
-        attempts += [lambda: self._settle_sub(txn, cands), lambda: self.settle_fx(txn, cands)]
+        attempts += [lambda: self._settle_sub(txn, cands), lambda: self.settle_fx(txn, cands),
+                     lambda: self._explained_single(txn, cands)]
         for f in attempts:
             r = f()
             if r is not None:
                 return r
         return None
+
+    def _explained_single(self, txn: dict, cands: list[int]) -> list[Row] | None:
+        """One open invoice whose shortfall is a policy reason (discount in terms, withholding, bank charges)."""
+        ok = {"SHORT_DISCOUNT", "SHORT_WITHHOLDING", "SHORT_BANK_CHARGES"}
+        for k in cands:
+            if self.is_credit(k):
+                continue
+            r = self.settle(txn, [k], force_single=True)
+            if r is not None and r[0].exception in ok:
+                return r
+        return None
+
+    def try_credit_refund(self, txn: dict, blob: str) -> bool:
+        """Supplier refunds one of its credit notes (receipt settles an APC); we pay out a customer credit (ARC)."""
+        amount = float(txn["amount"])
+        kind = "APC" if amount > 0 else "ARC"
+        cash = abs(amount)
+        hit = [k for k in self.ref_items(dict(txn, amount=-amount), blob)
+               if self.kind[k] == kind and self.open[k] > CENT and abs(self.open[k] - cash) <= 0.01]
+        if not hit:
+            for p in self.rank_parties(txn, blob):
+                hit = [k for k in self.by_party.get(p, ()) if self.kind[k] == kind and self.open[k] > CENT
+                       and abs(self.open[k] - cash) <= 0.01 and self.ccy[k] == txn["currency"]]
+                if hit:
+                    break
+        if not hit:
+            return False
+        k = min(hit, key=lambda k: self.issue[k])
+        self.emit(txn["bank_txn_id"], [Row(self.ids[k], round(self.open[k], 2), "", "")], "credit_refund")
+        return True
 
     def _settle_sub(self, txn: dict, ks: list[int]) -> list[Row] | None:
         sub = self.subset(txn, ks)
@@ -621,6 +658,13 @@ class Engine:
             return True
         return False
 
+    def known_payer(self, txn: dict) -> bool:
+        """A customer clearly named in the line (full name coverage) who has open receivables."""
+        sc: dict[str, float] = {}
+        self.rank_parties(txn, bank_blob(txn), scores=sc)
+        return any(c >= 0.99 and any(self.open[k] > CENT and self.kind[k] == "ARI" for k in self.by_party.get(p, ()))
+                   for p, c in sc.items())
+
     def no_item(self, txn: dict) -> None:
         t = txn["bank_txn_id"]
         amount = float(txn["amount"])
@@ -633,6 +677,10 @@ class Engine:
                     label = lab
             if label:
                 self.emit(t, [Row(None, None, label, "")], "nonitem")
+            elif self.known_payer(txn):
+                # a known payer whose amount we could not explain: most likely a missed match, not an
+                # unidentified receipt; keep the UNIDENTIFIED exception for receipts nobody can be tied to
+                self.emit(t, [Row(None, None, "UNIDENTIFIED", "")], "unmatched_known_payer")
             else:
                 self.emit(t, [Row(None, None, "UNIDENTIFIED", "UNIDENTIFIED")], "unidentified")
         else:
