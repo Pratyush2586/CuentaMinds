@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections import Counter
 from datetime import datetime
@@ -16,6 +17,17 @@ from closeops.synth.generate import generate
 SCOREBOARD = "scoreboard.md"
 _HEADER = ("| time | run_dir | precision | recall | f1 | tp | fp | fn | note |\n"
            "|---|---|---|---|---|---|---|---|---|\n")
+
+
+def load_env(path: Path) -> None:
+    """KEY=value lines from a .env file; variables already set in the environment win."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        key, sep, value = line.partition("=")
+        key = key.strip()
+        if sep and key and not key.startswith("#"):
+            os.environ.setdefault(key, value.strip().strip("'\""))
 
 
 def _cmd_profile(a) -> int:
@@ -75,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
     # crash on names outside it; always emit UTF-8.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+    load_env(Path.cwd() / ".env")  # API keys for --agents (git-ignored)
     p = argparse.ArgumentParser(prog="closeops")
     sub = p.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("profile", help="profile raw files as markdown")

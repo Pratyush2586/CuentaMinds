@@ -147,6 +147,20 @@ class ClaudeLLM:
         raise AgentError(f"no verdict within {MAX_TURNS} turns")
 
 
+def make_llm(ds: Dataset, policy: dict) -> LLM:
+    """policy agents.provider: 'claude' (default) or 'gemini' (free tier)."""
+    cfg = policy.get("agents") or {}
+    provider = cfg.get("provider", "claude")
+    if provider == "claude":
+        return ClaudeLLM(ds)
+    if provider == "gemini":
+        from closeops.agents import gemini
+        return gemini.GeminiLLM(
+            ds, triage_model=cfg.get("gemini_model", gemini.DEFAULT_MODEL),
+            controller_model=cfg.get("gemini_controller_model", gemini.DEFAULT_MODEL))
+    raise ValueError(f"unknown agents.provider {provider!r}; use 'claude' or 'gemini'")
+
+
 def _is_iban_rule(check: str) -> bool:
     return check.startswith("iban_") or check == "shared_iban"
 
@@ -183,11 +197,9 @@ def resolve_residuals(ds: Dataset, findings: list[Finding], policy: dict, llm: L
     cfg = policy.get("agents") or {}
     limit = int(cfg.get("max_residuals", DEFAULT_MAX_RESIDUALS))
     budget = float(cfg.get("wall_clock_seconds", DEFAULT_WALL_CLOCK_SECONDS))
+    workers = int(cfg.get("max_workers", MAX_WORKERS))
     residuals = sorted((f for f in findings if _selected(f, policy)),
                        key=lambda f: (-(f.amount_eur or 0), f.finding_id))
-    if len(residuals) > limit:
-        notes.append(f"agents: {limit} of {len(residuals)} residuals reviewed "
-                     f"(max_residuals={limit}); {len(residuals) - limit} left to the rules")
     picked = sorted(residuals[:limit], key=lambda f: f.finding_id)
     stop = threading.Event()  # circuit breaker: set on the first authentication failure
     unavailable: list[str] = []
@@ -199,11 +211,14 @@ def resolve_residuals(ds: Dataset, findings: list[Finding], policy: dict, llm: L
             unavailable.append(out[1])
         return out
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+    with ThreadPoolExecutor(max_workers=workers) as pool:
         outcomes = list(pool.map(call, picked))
     if stop.is_set():  # leave every finding exactly as the rules produced it
         notes.append(f"agents unavailable: {sorted(unavailable)[0]}")
         return findings
+    if len(residuals) > limit:
+        notes.append(f"agents: {limit} of {len(residuals)} residuals reviewed "
+                     f"(max_residuals={limit}); {len(residuals) - limit} left to the rules")
 
     over_budget = sum(err == _OVER_BUDGET for _, err in outcomes)
     if over_budget:

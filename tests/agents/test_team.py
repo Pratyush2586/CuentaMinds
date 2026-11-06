@@ -427,3 +427,26 @@ def test_wall_clock_budget_stops_dispatch(ds, policy, tmp_path, monkeypatch):
     assert not any(n.startswith("agent error") for n in notes)
     assert sum(f.resolved_by == "AP Clerk" for f in out) == 3
     assert len(events) == 3
+
+
+def test_breaker_note_replaces_budget_note(ds, policy, tmp_path):
+    policy = {**policy, "agents": {"max_residuals": 1, "wall_clock_seconds": 300}}
+    fs = [mk("dup_near", "duplicate", 0.7, r) for r in "AB"]
+    assign_tiers(fs, policy)
+    notes = []
+    resolve_residuals(ds, fs, policy, FakeLLM(raises=team.AgentsUnavailable("no key")),
+                      EvidenceLog(tmp_path / "ev.jsonl"), notes)
+    assert notes == ["agents unavailable: no key"]
+
+
+def test_max_workers_from_policy(ds, policy, tmp_path, monkeypatch):
+    seen = {}
+    real = team.ThreadPoolExecutor
+
+    def pool(max_workers):
+        seen["n"] = max_workers
+        return real(max_workers=max_workers)
+    monkeypatch.setattr(team, "ThreadPoolExecutor", pool)
+    policy = {**policy, "agents": {"max_residuals": 40, "wall_clock_seconds": 300, "max_workers": 2}}
+    run(ds, policy, [mk("dup_near", "duplicate", 0.7)], FakeLLM(), tmp_path)
+    assert seen["n"] == 2

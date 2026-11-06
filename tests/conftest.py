@@ -8,6 +8,16 @@ import yaml
 from closeops.model import CANONICAL, Dataset
 
 
+@pytest.fixture(autouse=True)
+def _no_real_llm(monkeypatch):
+    """Tests never reach a real API: blank keys (restored after each test, and .env loading
+    keeps them blank) and route the Gemini provider through ClaudeLLM, which tests patch."""
+    from closeops.agents import gemini, team
+    for key in ("ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
+        monkeypatch.setenv(key, "")
+    monkeypatch.setattr(gemini, "GeminiLLM", lambda ds, **kw: team.ClaudeLLM(ds))
+
+
 @pytest.fixture
 def make_ds():
     def _make(period_end="2026-10-31", **tables):

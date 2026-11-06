@@ -25,6 +25,10 @@ bankrec:
   max_payment_lag_days: 90
 
 agents:
+  provider: gemini         # gemini (free tier, GEMINI_API_KEY) | claude (ANTHROPIC_API_KEY, paid)
+  gemini_model: gemini-3.1-flash-lite   # free tier quotas are per model per day (2.5-flash: 20/day)
+  gemini_controller_model: gemini-3.5-flash
+  max_workers: 2           # parallel agent calls; keep low on the Gemini free tier (rate limits)
   max_residuals: 40        # largest residuals by amount_eur go to the agents; the rest keep the rule result
   wall_clock_seconds: 300  # no new agent calls after this; in-flight results still apply
 

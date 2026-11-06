@@ -15,11 +15,18 @@ py -3.12 -m venv .venv
 .venv/Scripts/python -m pip install -e ".[dev]"
 ```
 
-Optional, needed only for the Claude agents (`--agents`):
+Optional, needed only for the agents (`--agents`). Put the keys in a git-ignored `.env` at the repo root; the CLI loads it, and variables already set in your shell take precedence:
 
-```bash
-ant auth login            # or: set ANTHROPIC_API_KEY in your environment
 ```
+GEMINI_API_KEY=...        # default provider: free tier
+ANTHROPIC_API_KEY=...     # only when config/policy.yaml has agents.provider: claude (paid)
+```
+
+`agents.provider` in `config/policy.yaml` picks the provider:
+- `gemini` (the default) uses `gemini_model` for triage and `gemini_controller_model` for the Controller memo.
+- Free-tier quotas are counted **per model per day**; `gemini-2.5-flash` allows only 20 requests a day.
+- When a model's daily quota runs out, the run adds one `agents unavailable: Gemini daily quota exhausted` note and carries on rules-only. Switch to another model in the policy to continue.
+- To try the agents cheaply, use a policy copy with a low `agents.max_residuals`, for example 10.
 
 Without credentials everything still works rules-only. With `--agents` and no credentials, the run adds a single `agents unavailable` note.
 

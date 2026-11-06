@@ -69,7 +69,7 @@ def run_close(raw_dir: Path, mapping: Path, policy_path: Path, out_dir: Path,
     if use_agents:
         from closeops.agents import team  # lazy: rules-only runs never import the SDK
         try:
-            llm = team.ClaudeLLM(ds)
+            llm = team.make_llm(ds, policy)
         except Exception as exc:
             notes.append(f"agents unavailable: {exc}")
         if llm is not None:

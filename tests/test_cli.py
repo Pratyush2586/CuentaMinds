@@ -64,3 +64,15 @@ def test_synth_hard_flag(tmp_path):
     generate(tmp_path / "n", seed=3, n_invoices=200)
     normal = json.loads((tmp_path / "n" / "answer_key.json").read_text(encoding="utf-8"))
     assert len(key) == len(normal) + 5
+
+
+def test_load_env_sets_missing_only(tmp_path, monkeypatch):
+    from closeops.cli import load_env
+    (tmp_path / ".env").write_text("# keys\nA_KEY=from-file\nB_KEY = 'quoted'\n\nbad line\n",
+                                   encoding="utf-8")
+    monkeypatch.setenv("A_KEY", "already-set")
+    monkeypatch.delenv("B_KEY", raising=False)
+    load_env(tmp_path / ".env")
+    import os
+    assert os.environ["A_KEY"] == "already-set" and os.environ["B_KEY"] == "quoted"
+    load_env(tmp_path / "missing.env")  # absent file is fine
