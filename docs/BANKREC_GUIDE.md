@@ -513,7 +513,7 @@ print("open items", int((d.items.open > 0).sum()), "| batch rows dd/cards/cheque
 EOF
 ```
 
-Expect about 220k lines from 2026-01-01 to 2026-06-30, masters from `.../masters_final`, ZA01 among the entities, and ZAR in fx.
+Expect about 220k lines from 2026-01-01 to 2026-06-30, masters from `.../masters_final`, **ZA01** among the entities, and fx up to 2026-06. (Tested on LIVE on Friday: 203,083 lines, 17 entities, ZAR in fx True, fx up to 2025-12-31.)
 
 ### Step 4: run (18:10 → ~18:40)
 
