@@ -23,3 +23,6 @@
 | 2026-11-06 20:14 | sample | submissions\sample_v19.csv.gz | 88.9 | v19 overpaid single, multi-invoice withholding |
 | 2026-11-06 20:15 | sample | submissions\sample_v20.csv.gz | 90.78 | v20 overpayment signature (round / 1% / 10%) |
 | 2026-11-06 20:27 | sample | submissions\sample_v21.csv.gz | 91.38 | v21 duplicate payments of settled invoices |
+| 2026-11-06 20:28 | live | submissions\live_v2.csv.gz | valid (no golden: upload to score) | LIVE v2 = sample v17 engine (88.71) |
+| 2026-11-06 20:34 | live | submissions\live_v3.csv.gz | valid (no golden: upload to score) | LIVE v3 = sample v20 engine (90.78) |
+| 2026-11-06 20:53 | live | submissions\live_v4.csv.gz | valid (no golden: upload to score) | LIVE v4 = sample v21 engine (91.38) |
