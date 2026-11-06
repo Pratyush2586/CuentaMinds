@@ -121,12 +121,25 @@ class Engine:
         self.party_names = names
         self.party_entity = {**dict(zip(cu.customer_id, cu.entity)), **dict(zip(d.suppliers.supplier_id, d.suppliers.entity))}
         self.word_parties: dict[tuple[str, str], set[str]] = defaultdict(set)
+        self.prefix_words: dict[tuple[str, str], set[str]] = defaultdict(set)   # truncated words in N43 texts
         for p, ns in names.items():
             e = self.party_entity.get(p, "")
             for n in ns:
                 for w in n.split():
                     if len(w) >= 3:
                         self.word_parties[(e, w)].add(p)
+                        for L in range(5, len(w)):
+                            self.prefix_words[(e, w[:L])].add(w)
+        n_ent: dict[str, int] = defaultdict(int)
+        for p in names:
+            n_ent[self.party_entity.get(p, "")] += 1
+        self.n_ent = n_ent
+        import math
+        self.idf = {k: math.log(1 + n_ent[k[0]] / len(v)) for k, v in self.word_parties.items()}
+        self.po_index: dict[str, list[int]] = defaultdict(list)
+        for k, po in enumerate(self.items.po):
+            if po:
+                self.po_index[norm(po)].append(k)
 
     # --------------------------------------------------------------- advices
     def _advice_index(self) -> None:
@@ -353,6 +366,58 @@ class Engine:
                 found.append(k)
         return found
 
+    def rank_parties(self, txn: dict, blob: str, top: int = 6) -> list[str]:
+        """Parties named in the line, best first: IBAN, then rare-word coverage of the party name."""
+        out: list[str] = []
+        acct = norm(txn.get("counterparty_account", ""))
+        if acct and acct in self.iban_party:
+            out.append(self.iban_party[acct])
+        ent = txn["entity"]
+        ents = [ent, "ES01", "ES02", "PT01"] if ent == "ES00" else [ent]
+        src = fold(txn.get("counterparty_name", "")) + " " + blob
+        words = set(w for w in re.split(r"[^A-Z0-9]+", src) if len(w) >= 3)
+        matched: dict[str, float] = defaultdict(float)
+        for e in ents:
+            seen_name_words = set()
+            for w in words:
+                cands = [w] if (e, w) in self.word_parties else []
+                if not cands and len(w) >= 5:
+                    cands = list(self.prefix_words.get((e, w), ()))[:20]
+                for nw in cands:
+                    if nw in seen_name_words:
+                        continue
+                    seen_name_words.add(nw)
+                    wt = self.idf.get((e, nw), 0.0)
+                    for p in self.word_parties.get((e, nw), ()):
+                        matched[p] += wt
+        scored = []
+        for p, m in matched.items():
+            e = self.party_entity.get(p, "")
+            best_cov = 0.0
+            for n in self.party_names.get(p, ()):
+                tot = sum(self.idf.get((e, w), 0.0) for w in n.split() if len(w) >= 3)
+                if tot:
+                    best_cov = max(best_cov, min(1.0, m / tot))
+            if best_cov >= 0.6:
+                scored.append((best_cov, m, p))
+        scored.sort(reverse=True)
+        for _, _, p in scored[:top]:
+            if p not in out:
+                out.append(p)
+        return out
+
+    def party_refs(self, txn: dict, blob: str, ks: list[int]) -> list[int]:
+        """Items among ks quoted in the text: suffix of our number, truncated number, or the customer's PO."""
+        toks = set(tokens(blob))
+        dig = {digits(t) for t in toks if len(digits(t)) >= 4}
+        hit = []
+        for k in ks:
+            dn, dd, po = norm(self.doc[k]), digits(self.doc[k]), norm(self.items.po.iat[k])
+            if dn in toks or (po and po in toks) or any(len(t) >= 7 and dn.startswith(t) for t in toks) \
+                    or any(dd.endswith(x) and len(x) >= 5 for x in dig):
+                hit.append(k)
+        return hit
+
     def identify_party(self, txn: dict, blob: str) -> set[str]:
         acct = norm(txn.get("counterparty_account", ""))
         if acct and acct in self.iban_party:
@@ -462,20 +527,30 @@ class Engine:
             if paid:
                 self.emit(t, [Row(self.ids[paid[0]], round(abs(amount), 2), "", "DUPLICATE_PAYMENT")], "dup")
                 return
-        parties = self.identify_party(txn, blob)
-        if parties:
-            fam = set(parties)
-            for p in parties:
-                fam.update(self.parent_children.get(p, ()))
+        for p in self.rank_parties(txn, blob):
+            fam = {p, *self.parent_children.get(p, ())}
             cands = self.open_of(fam, amount)
-            if cands:
+            if not cands:
+                continue
+            r = None
+            quoted = self.party_refs(txn, blob, cands)
+            if quoted:
+                r = self.settle(txn, quoted)
+                if r is None:
+                    sub = self.subset(txn, quoted)
+                    r = self.settle(txn, sub) if sub else None
+                if r is None:
+                    r = self.settle(txn, quoted + [k for k in cands if self.is_credit(k) and k not in quoted])
+                if r is None and len([k for k in quoted if not self.is_credit(k)]) == 1:
+                    r = self.settle(txn, quoted, force_single=True)
+            if r is None:
                 sub = self.subset(txn, cands)
                 r = self.settle(txn, sub) if sub else None
-                if r is None:
-                    r = self.settle_fx(txn, cands)
-                if r is not None:
-                    self.emit(t, r, "party")
-                    return
+            if r is None:
+                r = self.settle_fx(txn, cands)
+            if r is not None:
+                self.emit(t, r, "party")
+                return
 
     def settle_fx(self, txn: dict, cands: list[int]) -> list[Row] | None:
         """Different-currency line: find the item set whose amount equals the instructed (original) amount."""
