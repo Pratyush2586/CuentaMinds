@@ -7,3 +7,4 @@
 | 2026-11-06 19:48 | sample | submissions\sample_v5.csv.gz | 61.94 | v5 faster subset-sum |
 | 2026-11-06 19:51 | sample | submissions\sample_v6.csv.gz | 73.82 | v6 remittance advices |
 | 2026-11-06 19:52 | sample | submissions\sample_v7.csv.gz | 77.12 | v7 ranked parties (idf, truncated words), party-scoped refs/PO |
+| 2026-11-06 19:54 | sample | submissions\sample_v8.csv.gz | 80.82 | v8 unified per-payer resolution, gap fill, overpay cap |

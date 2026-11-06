@@ -304,8 +304,8 @@ class Engine:
         if len(inv) != 1 and not force_single:
             return None
         k = inv[0]
-        if diff < 0:  # paid more than owed
-            if len(inv) == 1:
+        if diff < 0:  # paid more than owed: only a modest excess is an overpayment, not a missed invoice
+            if len(inv) == 1 and -diff <= max(0.10 * owed, 50.0):
                 return rows({k: (round(self.open[k], 2), "FX_DIFFERENCE" if fx else "OVERPAYMENT")})
             return None
         # short payment on a single invoice
@@ -506,20 +506,16 @@ class Engine:
                 self.emit(t, [Row(None, None, label, "UNIDENTIFIED" if label == "UNIDENTIFIED" else "")], "nonitem")
                 return
         refs = [k for k in self.ref_items(txn, blob)]
+        tried: set[str] = set()
         if refs:
             open_refs = [k for k in refs if self.open[k] > CENT]
             if open_refs:
-                r = self.settle(txn, open_refs)
-                if r is None:
-                    sub = self.subset(txn, open_refs)
-                    r = self.settle(txn, sub) if sub else None
-                if r is None:
-                    parties = {self.party[k] for k in open_refs}
-                    extra = [k for k in self.open_of(parties, amount) if self.is_credit(k)]
-                    if extra:
-                        r = self.settle(txn, open_refs + extra)
-                if r is None and len(open_refs) == 1:
-                    r = self.settle(txn, open_refs, force_single=True)
+                parties = {self.party[k] for k in open_refs}
+                fam = set(parties)
+                for p in parties:
+                    fam.update(self.parent_children.get(p, ()))
+                tried |= parties
+                r = self.resolve_for(txn, blob, fam, open_refs)
                 if r is not None:
                     self.emit(t, r, "ref")
                     return
@@ -528,29 +524,49 @@ class Engine:
                 self.emit(t, [Row(self.ids[paid[0]], round(abs(amount), 2), "", "DUPLICATE_PAYMENT")], "dup")
                 return
         for p in self.rank_parties(txn, blob):
-            fam = {p, *self.parent_children.get(p, ())}
-            cands = self.open_of(fam, amount)
-            if not cands:
+            if p in tried:
                 continue
-            r = None
-            quoted = self.party_refs(txn, blob, cands)
-            if quoted:
-                r = self.settle(txn, quoted)
-                if r is None:
-                    sub = self.subset(txn, quoted)
-                    r = self.settle(txn, sub) if sub else None
-                if r is None:
-                    r = self.settle(txn, quoted + [k for k in cands if self.is_credit(k) and k not in quoted])
-                if r is None and len([k for k in quoted if not self.is_credit(k)]) == 1:
-                    r = self.settle(txn, quoted, force_single=True)
-            if r is None:
-                sub = self.subset(txn, cands)
-                r = self.settle(txn, sub) if sub else None
-            if r is None:
-                r = self.settle_fx(txn, cands)
+            r = self.resolve_for(txn, blob, {p, *self.parent_children.get(p, ())}, [])
             if r is not None:
                 self.emit(t, r, "party")
                 return
+
+    def resolve_for(self, txn: dict, blob: str, fam: set[str], seed: list[int]) -> list[Row] | None:
+        """Settle the line against the open items of one payer family, quoted items first."""
+        amount = float(txn["amount"])
+        cands = self.open_of(fam, amount)
+        if not cands and not seed:
+            return None
+        quoted = list(dict.fromkeys(seed + self.party_refs(txn, blob, cands)))
+        credits = [k for k in cands if self.is_credit(k) and k not in quoted]
+        attempts = []
+        if quoted:
+            attempts += [lambda: self.settle(txn, quoted),
+                         lambda: self._settle_sub(txn, quoted),
+                         lambda: self.settle(txn, quoted + credits) if credits else None,
+                         lambda: self._settle_sub(txn, quoted + credits) if credits else None,
+                         lambda: self._gap_fill(txn, quoted, [k for k in cands if k not in quoted])]
+            if len([k for k in quoted if not self.is_credit(k)]) == 1:
+                attempts.append(lambda: self.settle(txn, quoted, force_single=True))
+        attempts += [lambda: self._settle_sub(txn, cands), lambda: self.settle_fx(txn, cands)]
+        for f in attempts:
+            r = f()
+            if r is not None:
+                return r
+        return None
+
+    def _settle_sub(self, txn: dict, ks: list[int]) -> list[Row] | None:
+        sub = self.subset(txn, ks)
+        return self.settle(txn, sub) if sub else None
+
+    def _gap_fill(self, txn: dict, quoted: list[int], rest: list[int]) -> list[Row] | None:
+        """Quoted items plus other open items of the payer that make up the rest (truncated reference lists)."""
+        net = sum(-self.open[k] if self.is_credit(k) else self.open[k] for k in quoted)
+        gap = abs(float(txn["amount"])) - net
+        if gap <= 0.01 or not rest:
+            return None
+        fill = self.subset(dict(txn, amount=gap), rest)
+        return self.settle(txn, quoted + fill) if fill else None
 
     def settle_fx(self, txn: dict, cands: list[int]) -> list[Row] | None:
         """Different-currency line: find the item set whose amount equals the instructed (original) amount."""
