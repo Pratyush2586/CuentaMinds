@@ -624,7 +624,31 @@ class Engine:
             if r is not None:
                 self.emit(t, r, "party")
                 return
-        self.try_credit_refund(txn, blob)
+        if self.try_credit_refund(txn, blob):
+            return
+        self.try_duplicate(txn, blob, refs)
+
+    def try_duplicate(self, txn: dict, blob: str, refs: list[int]) -> bool:
+        """A known payer pays again exactly an invoice that is already settled."""
+        amount = float(txn["amount"])
+        cash = abs(amount)
+        side = "AR" if amount > 0 else "AP"
+        def closed(ks):
+            return [k for k in ks if self.kind[k] == side + "I" and self.open[k] <= CENT
+                    and abs(self.total[k] - cash) <= 0.01 and self.issue[k] <= txn["booking_date"]]
+        hit = closed(refs)
+        if not hit:
+            for p in self.rank_parties(txn, blob):
+                hit = closed(self.by_party.get(p, ()))
+                if hit:
+                    quoted = self.party_refs(txn, blob, hit)
+                    hit = quoted or hit
+                    break
+        if not hit:
+            return False
+        k = max(hit, key=lambda k: self.issue[k])
+        self.emit(txn["bank_txn_id"], [Row(self.ids[k], round(cash, 2), "", "DUPLICATE_PAYMENT")], "dup")
+        return True
 
     def resolve_for(self, txn: dict, blob: str, fam: set[str], seed: list[int]) -> list[Row] | None:
         """Settle the line against the open items of one payer family, quoted items first."""

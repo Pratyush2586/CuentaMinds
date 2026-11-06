@@ -125,9 +125,16 @@ def _items(d: Path, extra_dirs: list[Path]) -> pd.DataFrame:
         # enrich carried-over items (names, terms, po…) from earlier phases' item files
         if extra_dirs:
             prev = pd.concat([_items(p, []) for p in extra_dirs], ignore_index=True).drop_duplicates("item_id", keep="last")
+            # recently issued items already settled before the phase: open 0, kept so a duplicate payment of
+            # one of them can still be recognised (DUPLICATE_PAYMENT)
+            start = min(items.issue_date.min(), o.issue_date.max())
+            floor = (pd.Timestamp(start) - pd.DateOffset(months=6)).strftime("%Y-%m-%d")
+            closed = prev[(prev.issue_date >= floor) & ~prev.item_id.isin(old.item_id) & ~prev.item_id.isin(items.item_id)]
+            closed = closed.assign(open=0.0)
             prev = prev.set_index("item_id")
             for c in ("party_name", "payment_terms", "po", "payment_method", "related_document", "reason"):
                 old[c] = old.item_id.map(prev[c]) if c in prev else ""
+            old = pd.concat([old, closed], ignore_index=True)
         items = pd.concat([items, old], ignore_index=True)
     items = items.reindex(columns=ITEM_COLS).fillna("")
     items = _num(items, ["total", "open"])

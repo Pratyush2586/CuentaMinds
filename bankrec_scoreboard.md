@@ -22,3 +22,4 @@
 | 2026-11-06 20:13 | sample | submissions\sample_v18.csv.gz | 88.84 | v18 service month for same-amount invoices |
 | 2026-11-06 20:14 | sample | submissions\sample_v19.csv.gz | 88.9 | v19 overpaid single, multi-invoice withholding |
 | 2026-11-06 20:15 | sample | submissions\sample_v20.csv.gz | 90.78 | v20 overpayment signature (round / 1% / 10%) |
+| 2026-11-06 20:27 | sample | submissions\sample_v21.csv.gz | 91.38 | v21 duplicate payments of settled invoices |
