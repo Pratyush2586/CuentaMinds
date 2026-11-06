@@ -128,6 +128,13 @@ class Engine:
             if n:
                 names[p].add(name_key(n))
         self.party_names = names
+        full: dict[str, set[str]] = defaultdict(set)   # folded full names incl. legal form, for tie-breaks
+        for df, idcol, cols in ((cu, "customer_id", ("name", "trade_name")), (d.suppliers, "supplier_id", ("name",))):
+            for r in df.to_dict("records"):
+                for c in cols:
+                    if r.get(c):
+                        full[r[idcol]].add(norm(r[c]))
+        self.full_names = full
         self.party_entity = {**dict(zip(cu.customer_id, cu.entity)), **dict(zip(d.suppliers.supplier_id, d.suppliers.entity))}
         self.word_parties: dict[tuple[str, str], set[str]] = defaultdict(set)
         self.prefix_words: dict[tuple[str, str], set[str]] = defaultdict(set)   # truncated words in N43 texts
@@ -417,8 +424,24 @@ class Engine:
                 best_cov = max(best_cov, min(1.0, m / tot))
             if best_cov >= 0.6:
                 scored.append((best_cov, m, p))
-        scored.sort(reverse=True)
-        for cov, _, p in scored[:top]:
+        if scored:  # same-name parties are common: break ties by exact name (legal form) and word order
+            nblob = norm(src)
+            fblob = " " + " ".join(re.split(r"[^A-Z0-9]+", src)) + " "
+            def bonus(p):
+                b = 0.0
+                for fn in self.full_names.get(p, ()):
+                    if fn and fn[:24] in nblob:
+                        b = max(b, 2.0)
+                for n in self.party_names.get(p, ()):
+                    if n and f" {n} " in fblob:
+                        b = max(b, 1.0)
+                return b
+            scored = [(cov, bonus(p), m, p) for cov, m, p in scored]
+            scored.sort(reverse=True)
+            best = scored[0][0]
+            n_top = max(top, sum(1 for c in scored if c[0] >= best))
+            scored = [(c[0], c[2], c[3]) for c in scored[:min(n_top, 30)]]
+        for cov, _, p in scored:
             if p not in out:
                 out.append(p)
                 if scores is not None:
