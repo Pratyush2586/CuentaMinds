@@ -75,7 +75,8 @@ def cmd_run(a) -> int:
     res = score(out, golden if golden.exists() else None, list(data.txns.bank_txn_id), data.categories)
     _print_score(res)
     if res["ok"]:
-        line = f"| {datetime.now():%Y-%m-%d %H:%M} | {a.phase} | {out} | {res['score']} | {a.note} |\n"
+        shown = res["score"] if golden.exists() else "valid (no golden: upload to score)"
+        line = f"| {datetime.now():%Y-%m-%d %H:%M} | {a.phase} | {out} | {shown} | {a.note} |\n"
         log = Path(LOG)
         if not log.exists():
             log.write_text("| time | phase | file | local score (validation only if no golden) | note |\n|---|---|---|---|---|\n",

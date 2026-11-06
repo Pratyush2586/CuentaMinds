@@ -501,9 +501,15 @@ class Engine:
             return None
         sgn = [(-1 if self.is_credit(k) else 1) for k in ks]
         vals = [round(self.open[k] * 100) * s for k, s in zip(ks, sgn)]
-        for k, v in zip(ks, vals):               # single exact, oldest first
-            if v == target:
-                return [k]
+        singles = [k for k, v in zip(ks, vals) if v == target]
+        if singles:                              # single exact: the named service month, else oldest (FIFO)
+            if len(singles) > 1:
+                ym = service_month(bank_blob(txn), txn["booking_date"])
+                if ym:
+                    named = [k for k in singles if self.issue[k][:7] == ym]
+                    if named:
+                        return [named[0]]
+            return [singles[0]]
         run = 0
         for i, v in enumerate(vals):             # oldest-first prefix
             run += v
@@ -945,6 +951,38 @@ class Engine:
             for r in self.result.get(t, [Row(None, None, "UNIDENTIFIED", "UNIDENTIFIED")]):
                 out.append((t, r.item, r.amount, r.category if not r.item else "", r.exception))
         return out
+
+
+_MONTHS = {
+    1: "ENERO ENE JANUARY JAN JANUAR JANVIER JANV GENNAIO GEN JANEIRO",
+    2: "FEBRERO FEB FEBRUARY FEBRUAR FEVRIER FEVR FEBBRAIO FEVEREIRO FEV",
+    3: "MARZO MAR MARCH MAERZ MARZ MARS MARCO",
+    4: "ABRIL ABR APRIL APR AVRIL AVR APRILE",
+    5: "MAYO MAY MAI MAGGIO MAG MAIO",
+    6: "JUNIO JUN JUNE JUNI JUIN GIUGNO GIU JUNHO",
+    7: "JULIO JUL JULY JULI JUILLET JUIL LUGLIO LUG JULHO",
+    8: "AGOSTO AGO AUGUST AUG AOUT",
+    9: "SEPTIEMBRE SETIEMBRE SEP SEPT SEPTEMBER SEPTEMBRE SETTEMBRE SET SETEMBRO",
+    10: "OCTUBRE OCT OCTOBER OKTOBER OKT OCTOBRE OTTOBRE OTT OUTUBRO OUT",
+    11: "NOVIEMBRE NOV NOVEMBER NOVEMBRE NOVEMBRO",
+    12: "DICIEMBRE DIC DECEMBER DEC DEZEMBER DEZ DECEMBRE DICEMBRE DEZEMBRO",
+}
+_MONTH_OF = {w: m for m, ws in _MONTHS.items() for w in ws.split()}
+_MONTH_RE = re.compile(r"(?:(MANT|SERVICE|SERVICES|SERVICIOS|SERVICIO|WARTUNG|ENTRETIEN|CUOTA|FEE|MAINT|MANUTENZIONE|"
+                       r"MENSUALIDAD|ABONO|RENT|ALQUILER|MIETE|LOYER)\.?\s+)?\b([A-Z]{3,10})\.?\s*(\d{4}|\d{2})?\b")
+
+
+def service_month(blob: str, booking_date: str) -> str | None:
+    """'MANT. MAYO 25' -> '2025-06': monthly fees are invoiced at the start of the following month."""
+    for m in _MONTH_RE.finditer(blob):
+        kw, word, yr = m.group(1), m.group(2), m.group(3)
+        if word not in _MONTH_OF or not (kw or yr):
+            continue
+        mon = _MONTH_OF[word]
+        y = int(yr) + (2000 if yr and len(yr) == 2 else 0) if yr else int(booking_date[:4]) - (mon > int(booking_date[5:7]))
+        y, mon = (y + 1, 1) if mon == 12 else (y, mon + 1)
+        return f"{y:04d}-{mon:02d}"
+    return None
 
 
 def _foreign(txn: dict) -> bool:

@@ -17,4 +17,6 @@
 | 2026-11-06 20:08 | sample | submissions\sample_v15.csv.gz | 85.32 | v15 no future-dated candidates, complement subset |
 | 2026-11-06 20:09 | sample | submissions\sample_v16.csv.gz | 86.55 | v16 returns via DD batch mandate rows, DEVOL. |
 | 2026-11-06 20:10 | sample | submissions\sample_v17.csv.gz | 88.71 | v17 same-name party tie-breaks, keep all tied |
-| 2026-11-06 20:10 | live | submissions\live_v1.csv.gz | 20.0 | LIVE v1 = sample v9 engine |
+| 2026-11-06 20:10 | live | submissions\live_v1.csv.gz | valid (no golden: upload to score) | LIVE v1 = sample v9 engine |
+| 2026-11-06 20:12 | sample | submissions\sample_v18.csv.gz | 88.7 | v18 service month for same-amount invoices |
+| 2026-11-06 20:13 | sample | submissions\sample_v18.csv.gz | 88.84 | v18 service month for same-amount invoices |
