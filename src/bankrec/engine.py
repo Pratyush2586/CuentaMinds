@@ -55,6 +55,7 @@ class Engine:
         self.total = it.total.astype(float).tolist()
         self.open = it.open.astype(float).tolist()
         self.issue = it.issue_date.tolist()
+        self.due = it.due_date.tolist()
         self.terms = it.payment_terms.tolist()
         self.doc = it.doc.tolist()
         self.po = it.po.tolist()
@@ -340,13 +341,15 @@ class Engine:
         return "PARTIAL"
 
     # ------------------------------------------------------------- candidates
-    def open_of(self, parties: set[str], amount: float) -> list[int]:
-        """Open invoices and credit notes of these parties on the side the line settles (AR receipts, AP payments)."""
+    def open_of(self, parties: set[str], amount: float, date: str = "") -> list[int]:
+        """Open invoices and credit notes of these parties on the side the line settles (AR receipts, AP payments),
+        issued no later than shortly after the line's date (a payment cannot settle a future document)."""
         side = "AR" if amount > 0 else "AP"
+        limit = (pd.Timestamp(date) + pd.Timedelta(days=3)).strftime("%Y-%m-%d") if date else "9999"
         out = []
         for p in parties:
             for k in self.by_party.get(p, ()):
-                if self.open[k] > CENT and self.kind[k][:2] == side:
+                if self.open[k] > CENT and self.kind[k][:2] == side and self.issue[k] <= limit:
                     out.append(k)
         return sorted(set(out), key=lambda k: (self.issue[k], self.ids[k]))
 
@@ -430,6 +433,7 @@ class Engine:
         """Items among ks quoted in the text: suffix of our number, truncated number, or the customer's PO."""
         toks = set(tokens(blob))
         dig = {digits(t) for t in toks if len(digits(t)) >= 4}
+        dig |= {x.lstrip("0") for x in dig if len(x.lstrip("0")) >= 5}
         hit = []
         for k in ks:
             dn, dd, po = self.doc_norm[k], self.doc_digits[k], norm(self.po[k]) if self.po[k] else ""
@@ -478,6 +482,12 @@ class Engine:
             run += v
             if run == target:
                 return ks[: i + 1]
+        by_due = sorted(range(len(ks)), key=lambda i: (self.due[ks[i]] or self.issue[ks[i]], self.issue[ks[i]]))
+        run = 0
+        for n, i in enumerate(by_due):           # everything due up to some date (credit notes included)
+            run += vals[i]
+            if run == target:
+                return [ks[j] for j in by_due[: n + 1]]
         neg = -sum(v for v in vals if v < 0)
         keep = [i for i, v in enumerate(vals) if v <= target + neg]   # an item bigger than the cash cannot be in
         ks, vals = [ks[i] for i in keep], [vals[i] for i in keep]
@@ -499,6 +509,33 @@ class Engine:
                         return out[::-1]
                     out.append(ks[j])
                     s = prev
+            if len(back) > 60_000:
+                break
+        return self._complement(ks, vals, target)
+
+    def _complement(self, ks: list[int], vals: list[int], target: int) -> list[int] | None:
+        """Everything open minus a few items: find the small set left out (newest first) so the rest is the cash."""
+        excess = sum(vals) - target
+        if excess <= 0 or len(ks) < 3:
+            return None
+        order = sorted(range(len(ks)), key=lambda i: (self.due[ks[i]] or self.issue[ks[i]]), reverse=True)
+        back: dict[int, tuple[int, int]] = {0: (0, -1)}
+        neg = -sum(v for v in vals if v < 0)
+        for i in order:
+            v = vals[i]
+            for s0 in list(back):
+                ns = s0 + v
+                if ns not in back and -neg <= ns <= excess + neg:
+                    back[ns] = (s0, i)
+            if excess in back:
+                out, s0 = set(), excess
+                while True:
+                    prev, j = back[s0]
+                    if j == -1:
+                        break
+                    out.add(j)
+                    s0 = prev
+                return [ks[i] for i in range(len(ks)) if i not in out]
             if len(back) > 60_000:
                 break
         return None
@@ -558,7 +595,7 @@ class Engine:
     def resolve_for(self, txn: dict, blob: str, fam: set[str], seed: list[int]) -> list[Row] | None:
         """Settle the line against the open items of one payer family, quoted items first."""
         amount = float(txn["amount"])
-        cands = self.open_of(fam, amount)
+        cands = self.open_of(fam, amount, txn["booking_date"])
         if not cands and not seed:
             return None
         quoted = list(dict.fromkeys(seed + self.party_refs(txn, blob, cands)))
