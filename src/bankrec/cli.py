@@ -14,7 +14,10 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
+import pandas as pd
+
 from bankrec import data as D
+from bankrec.advices import load_advices
 from bankrec.engine import Engine
 from bankrec.nonitem import NonItemModel
 from bankrec.submission import score, write
@@ -57,8 +60,12 @@ def cmd_run(a) -> int:
     data = D.load(root, a.phase)
     mp = _model_path(root)
     model = NonItemModel.load(mp) if mp.exists() else None
+    earlier = {"sample": ["train"], "train": [], "live": ["train"], "final": ["live"]}[a.phase]
+    start = pd.Timestamp(data.txns.booking_date.min())
+    advices = load_advices([data.phase_dir] + [D.find_phase_dir(root, p) for p in earlier], root / "cache",
+                           min_received=(start - pd.DateOffset(days=35)).strftime("%Y-%m-%d"))
     t1 = time.time()
-    eng = Engine(data, model)
+    eng = Engine(data, model, advices)
     eng.run()
     t2 = time.time()
     out = Path(a.out or f"submissions/{a.phase}_{datetime.now():%Y%m%d-%H%M%S}.csv.gz")

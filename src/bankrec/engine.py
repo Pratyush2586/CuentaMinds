@@ -41,9 +41,10 @@ def _days(a: str, b: str) -> int:
 
 
 class Engine:
-    def __init__(self, data: Data, nonitem: NonItemModel | None = None):
+    def __init__(self, data: Data, nonitem: NonItemModel | None = None, advices: list[dict] | None = None):
         self.d = data
         self.nonitem = nonitem
+        self.advices = advices or []
         it = data.items
         self.items = it
         self.ids = it.item_id.tolist()
@@ -68,6 +69,7 @@ class Engine:
                        for r in data.payment_terms.itertuples()}
         self._fx = self._fx_table()
         self._parties()
+        self._advice_index()
 
     # ------------------------------------------------------------------ helpers
     def _fx_table(self):
@@ -125,6 +127,108 @@ class Engine:
                 for w in n.split():
                     if len(w) >= 3:
                         self.word_parties[(e, w)].add(p)
+
+    # --------------------------------------------------------------- advices
+    def _advice_index(self) -> None:
+        self.adv_by_ref: dict[str, list[int]] = defaultdict(list)
+        self.adv_by_amt: dict[int, list[int]] = defaultdict(list)
+        self.adv_used: set[int] = set()
+        for i, a in enumerate(self.advices):
+            for r in a["refs"]:
+                n = norm(r)
+                if len(n) >= 6:
+                    self.adv_by_ref[n].append(i)
+            paid = [ln["nums"][-1] for ln in a["lines"] if self._adv_doc(a, ln) is not None]
+            for v in {a["total"], round(sum(paid), 2) if paid else None}:
+                if v:
+                    self.adv_by_amt[round(v * 100)].append(i)
+
+    def _adv_doc(self, a: dict, ln: dict) -> int | None:
+        """Item of an advice line: our document number in any of the line's tokens (prefix optional)."""
+        best = None
+        for tok in ln["tokens"]:
+            for k in self.docidx.lookup(norm(tok)):
+                if self.kind[k][:2] != "AR":
+                    continue
+                if self.entity[k] == a["entity"]:
+                    return k
+                best = best if best is not None else k
+        return best
+
+    def find_advice(self, txn: dict, blob: str) -> int | None:
+        amt = round(float(txn["amount"]) * 100)
+        cands = []
+        btoks = set(tokens(blob))
+        for tok in btoks:
+            cands.extend(self.adv_by_ref.get(tok, ()))
+        if not cands:  # truncated reference in the bank text: prefix of an advice ref, same amount
+            for i in self.adv_by_amt.get(amt, ()):
+                if any(len(t) >= 7 and any(norm(r).startswith(t) or t.startswith(norm(r)) for r in self.advices[i]["refs"])
+                       for t in btoks):
+                    cands.append(i)
+        if not cands:  # no reference: same entity, same amount, payer named in the text, close in time
+            parties = None
+            for i in self.adv_by_amt.get(amt, ()):
+                a = self.advices[i]
+                if a["entity"] != txn["entity"] or not a["received"]:
+                    continue
+                if not -10 <= _days(a["received"], txn["booking_date"]) <= 20:
+                    continue
+                if parties is None:
+                    parties = self.identify_party(txn, blob)
+                pa = self.identify_party({"entity": a["entity"], "counterparty_name": a["payer"]}, fold(a["payer"]))
+                if parties & pa or not parties:
+                    cands.append(i)
+        cands = [i for i in dict.fromkeys(cands) if i not in self.adv_used and self.advices[i]["entity"] == txn["entity"]]
+        if not cands:
+            return None
+        return min(cands, key=lambda i: (abs(round((self.advices[i]["total"] or 0) * 100) - amt),
+                                         abs(_days(self.advices[i]["received"] or txn["booking_date"], txn["booking_date"]))))
+
+    def advice_rows(self, txn: dict, a: dict) -> list[Row]:
+        rows, seen = [], set()
+        fx = False
+        for ln in a["lines"]:
+            k = self._adv_doc(a, ln)
+            if k is None or k in seen:
+                continue
+            seen.add(k)
+            nums = ln["nums"]
+            paid, gross = abs(nums[-1]), abs(nums[0])
+            open_ = self.open[k] if self.open[k] > CENT else self.total[k]
+            fx = self.ccy[k] != txn["currency"]
+            if self.is_credit(k):
+                rows.append(Row(self.ids[k], round(open_, 2), "", ""))
+                continue
+            tol = max(0.01, 0.005 * open_)
+            deduction = len(nums) >= 3 and abs(nums[1]) > 0.005
+            reason = ln["reason"] and any(w not in " ".join(ln["tokens"]) for w in ln["reason"].split())
+            if abs(paid - open_) <= tol:
+                rows.append(Row(self.ids[k], round(open_, 2), "", "FX_DIFFERENCE" if fx else ""))
+            elif paid > open_:
+                rows.append(Row(self.ids[k], round(open_, 2), "", "FX_DIFFERENCE" if fx else "OVERPAYMENT"))
+            elif deduction or reason:
+                rows.append(Row(self.ids[k], round(paid, 2), "", "SHORT_DISPUTE"))
+            else:
+                exc = self.short_reason(txn, k, open_ - paid, paid, fx)
+                if exc == "PARTIAL":
+                    rows.append(Row(self.ids[k], round(paid, 2), "", "PARTIAL"))
+                else:
+                    rows.append(Row(self.ids[k], round(open_, 2), "", "FX_DIFFERENCE" if fx else exc))
+        return rows
+
+    def try_advice(self, txn: dict, blob: str) -> bool:
+        if not self.advices or float(txn["amount"]) <= 0:
+            return False
+        i = self.find_advice(txn, blob)
+        if i is None:
+            return False
+        rows = self.advice_rows(txn, self.advices[i])
+        if not rows:
+            return False
+        self.adv_used.add(i)
+        self.emit(txn["bank_txn_id"], rows, "advice")
+        return True
 
     def is_credit(self, k: int) -> bool:
         return self.kind[k] in ("ARC", "APC")
@@ -291,17 +395,23 @@ class Engine:
                 return ks[: i + 1]
         if len(ks) > MAX_SUBSET_ITEMS:
             ks, vals = ks[:MAX_SUBSET_ITEMS], vals[:MAX_SUBSET_ITEMS]
-        reach = {0: ()}
+        neg = -sum(v for v in vals if v < 0)
+        hi = target + neg                      # sums above this can never come back down to target
+        back: dict[int, tuple[int, int]] = {0: (0, -1)}   # sum -> (previous sum, item index)
         for i, v in enumerate(vals):
-            new = {}
-            for s, path in reach.items():
+            for s in list(back):
                 ns = s + v
-                if ns not in reach and ns not in new and -10 * target <= ns <= 10 * target:
-                    new[ns] = path + (i,)
-            reach.update(new)
-            if target in reach:
-                return [ks[j] for j in reach[target]]
-            if len(reach) > 400_000:
+                if ns not in back and -neg <= ns <= hi:
+                    back[ns] = (s, i)
+            if target in back:
+                out, s = [], target
+                while True:
+                    prev, j = back[s]
+                    if j == -1:
+                        return out[::-1]
+                    out.append(ks[j])
+                    s = prev
+            if len(back) > 150_000:
                 break
         return None
 
@@ -322,6 +432,8 @@ class Engine:
         amount = float(txn["amount"])
         blob = bank_blob(txn)
         if amount < 0 and self.try_return(txn, blob):
+            return
+        if self.try_advice(txn, blob):
             return
         if self.nonitem:
             label, share, n = self.nonitem.predict(txn)
