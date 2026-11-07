@@ -264,3 +264,36 @@ cd C:\Users\learn\Documents\prat\Hackathon\nova7nov
 .\.venv\Scripts\python.exe scripts\final_run.py --download                            # FINAL, asks UPLOAD
 .\.venv\Scripts\python.exe scripts\final_run.py --skip-run --file submissions\final_v1.csv.gz   # back to the FINAL checkpoint
 ```
+
+---
+
+## 14. Fresh clone next to the working copy (reproduce LIVE v16, then run the latest)
+
+From `PS C:\Users\learn\Documents\prat\Hackathon>`. The data is git-ignored, so it is copied from the working copy
+(`nova7nov`), including `data\valtermia\cache` (category models + PDF facts), so the clone gives byte-identical results.
+
+```powershell
+# 1. code
+git clone https://github.com/Pratyush2586/CuentaMinds.git CuentaMinds
+cd CuentaMinds
+git checkout live-v16                      # engine 99f29e7 = the file that scored 92.59 on LIVE
+
+# 2. Python 3.12 venv + packages
+& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m venv .venv
+.\.venv\Scripts\python -m pip install -q --upgrade pip
+.\.venv\Scripts\python -m pip install -q -e ".[dev]" requests
+.\.venv\Scripts\python -c "import bankrec, pdfplumber, anthropic, requests; print('packages ok')"
+
+# 3. secrets + data (never committed)
+Copy-Item ..\nova7nov\.env .\.env
+robocopy ..\nova7nov\data\valtermia .\data\valtermia /E /MT:16 /NFL /NDL /NJH /NP
+.\.venv\Scripts\python -c "import pathlib; print([l.split('=')[0] for l in pathlib.Path('.env').read_text().splitlines() if '=' in l])"
+
+# 4. reproduce LIVE v16 (about 16-20 min) and compare with the uploaded file
+.\.venv\Scripts\python -m bankrec.cli run --phase live --out submissions\repro_v16.csv.gz --note "repro v16"
+.\.venv\Scripts\python -c "import pandas as pd; a=pd.read_csv('submissions/repro_v16.csv.gz',dtype=str,keep_default_na=False); b=pd.read_csv('../nova7nov/submissions/live_v16.csv.gz',dtype=str,keep_default_na=False); print('IDENTICAL' if a.equals(b) else 'DIFFERENT', len(a), len(b))"
+
+# 5. move to the latest engine (main) for the next LIVE / FINAL
+git checkout main
+git pull
+```
