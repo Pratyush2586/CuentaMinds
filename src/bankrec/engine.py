@@ -1052,6 +1052,7 @@ class Engine:
         if not len(conf):
             return
         runs = {rid: g for rid, g in conf.groupby("run_id", sort=False)}
+        maturity: dict[str, dict[str, str]] = {}
         used: set[str] = set()
         lines = self.d.txns[self.d.txns.amount < 0].sort_values("booking_date")
         for txn in lines.to_dict("records"):
@@ -1065,9 +1066,22 @@ class Engine:
             m = re.search(rid + r"\s+(\d+)\s", b)
             n = int(m.group(1)) if m else None
             g = runs[rid]
+            if rid not in maturity:  # debited per maturity: latest document due date, rolled to the next business day
+                maturity[rid] = {e2e: _next_business_day(self._doc_due(gg, txn["entity"]))
+                                 for e2e, gg in g.groupby("end_to_end_id")}
             groups = [(e2e, round(float(gg.transfer_amount.iloc[0]) * 100)) for e2e, gg in g.groupby("end_to_end_id")
                       if e2e not in used]
-            pick = _subset_count([v for _, v in groups], round(-float(txn["amount"]) * 100), n)
+            target, day, mat = round(-float(txn["amount"]) * 100), txn["booking_date"], maturity[rid]
+            pick = None
+            same = [i for i, (e2e, _) in enumerate(groups) if mat[e2e] == day]
+            if same and sum(groups[i][1] for i in same) == target and (n is None or len(same) == n):
+                pick = same
+            if pick is None:
+                near = [i for i, (e2e, _) in enumerate(groups) if mat[e2e] and abs(_days(mat[e2e], day)) <= 3]
+                sub = _subset_count([groups[i][1] for i in near], target, n) if near else None
+                pick = [near[i] for i in sub] if sub is not None else None
+            if pick is None:
+                pick = _subset_count([v for _, v in groups], target, n)
             if pick is None:
                 continue
             chosen = {groups[i][0] for i in pick}
@@ -1075,6 +1089,17 @@ class Engine:
             rows = payrun_rows(g[g.end_to_end_id.isin(chosen)], txn["account_id"])
             if rows:
                 self.emit(t, rows, "confirming")
+
+    def _doc_due(self, gg: pd.DataFrame, entity: str) -> str:
+        """Latest due date of a payment-run beneficiary's invoices ('' if none is found). Supplier invoice numbers
+        are not unique across suppliers, so only the beneficiary's own items (by IBAN, else by name) count."""
+        r = gg.iloc[0]
+        ib = norm(r.beneficiary_iban)
+        parties = {self.iban_party[ib]} if ib in self.iban_party else self.identify_party(
+            {"entity": entity, "counterparty_name": r.beneficiary}, fold(r.beneficiary))
+        dues = [self.due[k] for d in gg.document_number for k in self.docidx.lookup(norm(d))
+                if self.kind[k] == "API" and self.entity[k] == entity and self.party[k] in parties and self.due[k]]
+        return max(dues) if dues else ""
 
     def submission_rows(self) -> list[tuple]:
         out = []
@@ -1123,6 +1148,14 @@ def _foreign(txn: dict) -> bool:
     b = fold(txn.get("text", "")) + " " + txn.get("bank_code", "")
     return bool(re.search(r"DIV\.|EN DIV|XBCT|SWIFT|FOREIGN|AUSLAND|ETRANGER|INTERNATIONAL|^13", b)) or \
         txn.get("bank_code", "") == "13" or bool(txn.get("orig_currency"))
+
+
+def _next_business_day(day: str) -> str:
+    """Saturday/Sunday -> the following Monday ('' stays '')."""
+    if not day:
+        return ""
+    d = pd.Timestamp(day)
+    return (d + pd.Timedelta(days=(7 - d.weekday()) % 7 if d.weekday() >= 5 else 0)).strftime("%Y-%m-%d")
 
 
 def _subset_count(vals: list[int], target: int, n: int | None, cap: int = 300_000) -> list[int] | None:
