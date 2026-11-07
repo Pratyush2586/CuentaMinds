@@ -684,6 +684,25 @@ class Engine:
                 seen.setdefault(run, []).append(j)
             if len(sols) > 50:
                 break
+        if not sols and n <= 200:   # a due-date window with ONE invoice left out (disputed / paid separately)
+            pre = [0]
+            for i in by_due:
+                pre.append(pre[-1] + vals[i])
+            where: dict[int, list[int]] = defaultdict(list)
+            for j, i in enumerate(by_due):
+                where[vals[i]].append(j)
+            for a in range(n):
+                for b in range(a + 4, min(n, a + 60) + 1):       # window by_due[a:b], at least 3 items kept
+                    ex = pre[b] - pre[a] - target
+                    if ex == 0:
+                        continue
+                    for h in where.get(ex, ()):
+                        if a < h < b - 1:                        # an interior hole: both window ends are paid
+                            idx = [by_due[x] for x in range(a, b) if x != h]
+                            sols.append((max(dist[x] for x in idx), idx))
+                            break
+                if len(sols) > 50:
+                    break
         if not sols and n <= 400:                      # pairs
             pos: dict[int, list[int]] = defaultdict(list)
             for i, v in enumerate(vals):
