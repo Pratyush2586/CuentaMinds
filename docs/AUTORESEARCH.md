@@ -92,6 +92,11 @@ LOOP until the human stops you, or until **17:30** on FINAL day:
 7. **Promote**: when a kept commit also holds up on the hold-out, merge it to `main`, run LIVE
    (`bankrec run --phase live`), and give the file to the human to upload.
 
+**Drift fixes** (behaviour that exists only in LIVE/FINAL, e.g. the Sept-2025 advice layout): TRAIN months cannot show
+the gain, so the harness will say DISCARD. Keep such a change only when (a) the dev months are neutral (no drop) and
+(b) a direct measurement on the LIVE inputs justifies it (e.g. share of advice lines resolved). Commit it as
+`feat(drift): ...` (not `exp:`), then let the next LIVE upload decide. Revert if LIVE does not improve.
+
 **Timeout**: a run over 12 minutes is killed and counts as a crash. Too slow for FINAL.
 
 **Never stop to ask** whether to continue. When out of ideas, re-read POLICIES.md §3–5, look at the next segment in the

@@ -1,7 +1,7 @@
 # CuentaMinds — Bank Reconciliation Engine: Developer Guide
 
 > **Who this is for:** a developer joining the team who must understand, run, evaluate, improve and submit this code.
-> **State as of:** 2026-11-07 11:50 (hackathon day) · `main` = `43b9049` · experiment branch `autoresearch/nov7`.
+> **State as of:** 2026-11-07 12:10 (hackathon day) · `main` = drift fix `c3731f3` + docs · experiment branch `autoresearch/nov7`.
 > **Read order:** §1 (the problem) → §2 (setup) → §4 (architecture) → §8 (how we measure) → §10–11 (today's plan).
 > **This guide is kept current.** Every kept change updates §9 (status) and §16 (changelog); see §15.
 
@@ -396,9 +396,9 @@ Following [karpathy/autoresearch](https://github.com/karpathy/autoresearch). The
 | item | state |
 |---|---|
 | best engine | `main` = `43b9049` (= experiment `8469efa` + log). **TRAIN-month mean 90.55** (2025-03: 91.46, 2024-10: 89.64) |
-| LIVE leaderboard | CuentaMinds **79.55** (live_v4, v21 engine), 1 submission. Leader at 11:45: Exponential 90.69 |
-| ready to upload | `submissions/live_v7.csv.gz` (validated; ≈ 90.3 on our evaluation) |
-| running | LIVE v8 (= main 43b9049, eval 90.55), log in the scratchpad `live_v8.log` |
+| LIVE leaderboard | CuentaMinds **87.56** (live_v7), 2nd. Leader: Exponential 90.69. (live_v4 = 79.55) |
+| LIVE v7 breakdown | pair F1 89.7 % (P 97.4, R 83.1) · line accuracy 90.5 % · exception macro-F1 77.9 % |
+| next upload | `live_v9` = 90.55 engine + Sept-2025 advice-layout drift fix (§9.5) |
 | repo | pushed to GitHub (private) |
 
 ### 9.2 Score history
@@ -413,9 +413,10 @@ Following [karpathy/autoresearch](https://github.com/karpathy/autoresearch). The
 | v23 | 91.47 | 86.06 | | | payment runs joined by quoted e2e/run id (FX transfers) |
 | v25 | 91.75 | 89.33 | 87.12 | live_v6 | advice deductions explained by policy are not disputes |
 | *eval fix* | | 91.17 | 89.37 | | advice window +20 days (re-baseline; v25 + confirming) |
-| exp 3b | | (89.42) | (87.32) | live_v7 | confirming by beneficiary maturity, next business day |
+| exp 3b | | (89.42) | (87.32) | **87.56** (live_v7) | confirming by beneficiary maturity, next business day |
 | exp 6 | | 91.43 | 89.60 | | party-name coverage rounding (float tie bug) |
-| **exp 7** | | **91.46** | **89.64** | live_v8 | within a day, referenced lines first |
+| **exp 7** | | **91.46** | **89.64** | | within a day, referenced lines first |
+| drift fix | | 91.46 | 89.64 | live_v9 | advice short invoice numbers / PO (LIVE-only layout, neutral on TRAIN) |
 
 ### 9.3 Autoresearch log (2026-11-07)
 
@@ -432,6 +433,7 @@ Following [karpathy/autoresearch](https://github.com/karpathy/autoresearch). The
 | dea6636 | +0.245 | **keep** | round name coverage (0.9999999 lost ties to partial names) |
 | 8469efa | +0.035 | **keep** | same-day ordering: referenced lines first |
 | 176dadf | +0.010 | discard | lookalike payers by legal form (also caught the word "Spa") |
+| c852e32 → c3731f3 | +0.000 | **kept as drift fix** | advice short invoice numbers / PO lookup. LIVE advice lines resolved 88.3 % → 97.9 % |
 | (earlier) | −0.50 | rejected | exact bitset subset-sum fallback for known payers: too many spurious exact sets |
 
 ### 9.4 Known gaps (TRAIN 2025-03, best engine), biggest first
@@ -447,7 +449,29 @@ Following [karpathy/autoresearch](https://github.com/karpathy/autoresearch). The
 | PARTIAL recall 0.70 | | partial payments not recognised |
 | DUPLICATE_PAYMENT P 0.40–0.67 | | a wrong earlier allocation (often a DD batch) closes the invoice first |
 
-### 9.5 FINAL drift to watch (POLICIES.md §6)
+### 9.5 LIVE vs TRAIN: drift found on 2026-11-07
+
+LIVE v7 scored 87.56 against our evaluation's ~90.3. Per segment, AP did *better* on LIVE but several AR segments did much worse:
+
+| segment | LIVE | TRAIN avg |
+|---|---|---|
+| ar_n_to_m | 19.5 % | 45 % |
+| ar_partial | 74.7 % | 85 % |
+| ar_instalment | 70.0 % | 78 % |
+| ar_1toN_text | 89.4 % | 93 % |
+
+Cause: **the Sept-2025 remittance-advice layout change** (POLICIES §6). Many customers moved from csv to an xlsx
+`Voucher | Invoice | PO | Inv. date | Amount | Deduction | Net paid`. The "Invoice" column prints a *short* number
+(`430845` for `1072430845`) or is empty (PO only). Only 88 % of post-September advice lines resolved, against 98 % before.
+`_adv_doc` now falls back to:
+1. a suffix of the payer's own receivables;
+2. the customer PO;
+3. a suffix plus the same gross amount anywhere in the entity.
+
+That gives 97.9 %. TRAIN can't show this, so it's kept under the **drift-fix rule** (`docs/AUTORESEARCH.md`).
+**Lesson:** for LIVE/FINAL-only behaviour, measure on the LIVE inputs directly, not just on TRAIN months.
+
+### 9.6 FINAL drift to watch (POLICIES.md §6)
 
 - **New subsidiary ZA01** from 2026-01-01: new bank, ZAR, invoice numbers "KWI…", renamed 2026-04-01.
   `final/masters_final/` must be picked up (`data.find_masters`). The current `fx_rates.csv` stops at 2025-12-31.
@@ -623,4 +647,5 @@ Discarded experiments are recorded only in §9.3 (one line), so nobody tries the
 | 11-07 11:10 | 5162bae | eval: advices window +20 days past month end; re-baseline 90.27 |
 | 11-07 11:30 | dea6636 | party-name coverage rounded (float tie bug) |
 | 11-07 11:40 | 8469efa | within a day, referenced lines matched first |
-| 11-07 11:50 | – | guide rewritten to current state (this version) |
+| 11-07 11:50 | f72c002 | guide rewritten to current state |
+| 11-07 12:10 | c3731f3 | LIVE v7 = 87.56; drift fix for the Sept-2025 advice layout; drift-fix rule in AUTORESEARCH.md |
