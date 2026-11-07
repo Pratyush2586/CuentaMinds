@@ -73,6 +73,7 @@ class Engine:
         self.result: dict[str, list[Row]] = {}
         self._payer_ar_cache: dict[tuple[str, str], list[int]] = {}
         self._pr_by_e2e: dict | None = None
+        self.supplier_ids = set(data.suppliers.supplier_id) if len(data.suppliers) else set()
         self._card_cheque: dict | None = None
         self._ar_po: dict | None = None
         self._ar_suffix: dict = {}
@@ -738,7 +739,8 @@ class Engine:
                 return
         if self.try_credit_refund(txn, blob):
             return
-        if amount > 0 and _DUP_REFUND_RE.search(blob) and not refs:   # a supplier returning our duplicate payment
+        if amount > 0 and _DUP_REFUND_RE.search(blob) and not refs and self._from_supplier(txn, blob):
+            # a supplier returning our duplicate payment
             self.emit(t, [Row(None, None, "SUPPLIER_REFUND", "")], "supplier_refund")
             return
         self.try_duplicate(txn, blob, refs)
@@ -750,7 +752,7 @@ class Engine:
         - a returned cheque / card chargeback debit quoting the cheque number / card order -> that invoice, RETURNED.
         RETURNED re-opens the items."""
         t, amount = txn["bank_txn_id"], float(txn["amount"])
-        if amount > 0 and _PROFORMA_RE.search(blob):
+        if amount > 0 and _PROFORMA_RE.search(blob) and not self.ref_items(txn, blob):
             self.emit(t, [Row(None, None, "CUSTOMER_ADVANCE", "")], "advance")
             return True
         if amount > 0 and _RETURN_RE.search(blob) and len(self.d.payruns):
@@ -764,8 +766,9 @@ class Engine:
                 rows = []
                 for r in g.itertuples():
                     amt = abs(float(r.document_amount))
+                    ents = {txn["entity"], "ES01", "ES02", "PT01"} if txn["entity"] == "ES00" else {txn["entity"]}
                     hits = [k for k in self.docidx.lookup(norm(r.document_number))
-                            if self.kind[k][:2] == "AP" and self.entity[k] == txn["entity"]]
+                            if self.kind[k][:2] == "AP" and self.entity[k] in ents]
                     if hits:
                         k = min(hits, key=lambda k: abs(self.total[k] - amt))
                         rows.append(Row(self.ids[k], round(amt, 2), "", "RETURNED"))
@@ -778,14 +781,16 @@ class Engine:
                     return True
         if amount < 0 and (_CHEQUE_RETURN_RE.search(blob) or _CHARGEBACK_RE.search(blob)):
             cash = abs(amount)
-            for tok in set(tokens(blob)):
-                hits = [k for k in self.docidx.lookup(tok) if self.kind[k] == "ARI" and self.entity[k] == txn["entity"]]
-                k = self._card_or_cheque_item(tok, txn["entity"], cash) if not hits else                     min(hits, key=lambda k: abs(self.total[k] - cash))
+            for tok in set(tokens(blob)):   # only cheque / card-order numbers present in the batch files
+                k = self._card_or_cheque_item(tok, txn["entity"], cash)
                 if k is not None and abs(self.total[k] - cash) <= max(0.01, 0.005 * cash):
                     self.open[k] += cash
                     self.emit(t, [Row(self.ids[k], round(cash, 2), "", "RETURNED")], "reversal")
                     return True
         return False
+
+    def _from_supplier(self, txn: dict, blob: str) -> bool:
+        return any(p in self.supplier_ids for p in self.rank_parties(txn, blob))
 
     def _card_or_cheque_item(self, tok: str, entity: str, cash: float) -> int | None:
         """Invoice behind a card order number or a deposited cheque number (from the batch files)."""
