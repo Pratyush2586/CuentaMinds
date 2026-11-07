@@ -42,3 +42,4 @@
 | 2026-11-07 10:41 | train 2024-10 | submissions\m2024-10_v25.csv.gz | 87.12 | v25 on second held-out month 2024-10 |
 | 2026-11-07 10:57 | live | submissions\live_v6.csv.gz | valid (no golden: upload to score) | LIVE v6 = v25 (TRAIN-month 89.33, sample 91.75) |
 | 2026-11-07 11:44 | live | submissions\live_v7.csv.gz | valid (no golden: upload to score) | LIVE v7 = v25 + confirming by maturity (eval 90.27) |
+| 2026-11-07 12:06 | live | submissions\live_v8.csv.gz | valid (no golden: upload to score) | LIVE v8 = + coverage rounding + referenced-first ordering (eval 90.55) |
