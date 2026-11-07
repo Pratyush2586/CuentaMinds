@@ -39,3 +39,4 @@
 | 2026-11-07 10:30 | sample | submissions\sample_v25.csv.gz | 91.75 | v25 advice deductions explained by policy (discount/withholding/charges) are not disputes |
 | 2026-11-07 10:32 | train 2025-03 | submissions\m2025-03_v23s.csv.gz | 85.98 | v23 seeded baseline |
 | 2026-11-07 10:33 | train 2025-03 | submissions\m2025-03_v25.csv.gz | 89.33 | v25 advice deductions explained by policy are not disputes |
+| 2026-11-07 10:41 | train 2024-10 | submissions\m2024-10_v25.csv.gz | 87.12 | v25 on second held-out month 2024-10 |
