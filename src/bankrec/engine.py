@@ -1262,7 +1262,8 @@ class Engine:
 
             plain = pr[pr.run_type != "confirming"]
             plain = plain.assign(_key=plain.end_to_end_id.where(plain.run_type == "transfers", plain.run_id))
-            for key, g in plain.groupby("_key", sort=False):
+            # run and end-to-end ids are only unique per debtor account: several entities' runs reuse them
+            for (_acct, key), g in plain.groupby(["debtor_account_id", "_key"], sort=False):
                 f = g.iloc[0]
                 total = float(f.transfer_amount) if f.run_type == "transfers" else round(
                     g.drop_duplicates("end_to_end_id").transfer_amount.sum(), 2)
@@ -1277,27 +1278,28 @@ class Engine:
         """Confirming run: the bank debits it per maturity date, each debit paying N beneficiaries of the run."""
         if not len(conf):
             return
-        runs = {rid: g for rid, g in conf.groupby("run_id", sort=False)}
-        maturity: dict[str, dict[str, str]] = {}
-        used: set[str] = set()
+        runs = {key: g for key, g in conf.groupby(["debtor_account_id", "run_id"], sort=False)}  # ids reused per entity
+        maturity: dict[tuple, dict[str, str]] = {}
+        used: set[tuple] = set()
         lines = self.d.txns[self.d.txns.amount < 0].sort_values("booking_date")
         for txn in lines.to_dict("records"):
             t = txn["bank_txn_id"]
             if t in self.result:
                 continue
             b = blobs[t]
-            rid = next((r for r in re.findall(r"CF\d{10,14}", b) if r in runs), None)
+            rid = next((r for r in re.findall(r"CF\d{10,14}", b) if (txn["account_id"], r) in runs), None)
             if not rid:
                 continue
             m = re.search(rid + r"\s+(\d+)\s", b)
             n = int(m.group(1)) if m else None
-            g = runs[rid]
-            if rid not in maturity:  # debited per maturity: latest document due date, rolled to the next business day
-                maturity[rid] = {e2e: _next_business_day(self._doc_due(gg, txn["entity"]))
+            rk = (txn["account_id"], rid)
+            g = runs[rk]
+            if rk not in maturity:  # debited per maturity: latest document due date, rolled to the next business day
+                maturity[rk] = {e2e: _next_business_day(self._doc_due(gg, txn["entity"]))
                                  for e2e, gg in g.groupby("end_to_end_id")}
             groups = [(e2e, round(float(gg.transfer_amount.iloc[0]) * 100)) for e2e, gg in g.groupby("end_to_end_id")
-                      if e2e not in used]
-            target, day, mat = round(-float(txn["amount"]) * 100), txn["booking_date"], maturity[rid]
+                      if (rk, e2e) not in used]
+            target, day, mat = round(-float(txn["amount"]) * 100), txn["booking_date"], maturity[rk]
             pick = None
             same = [i for i, (e2e, _) in enumerate(groups) if mat[e2e] == day]
             if same and sum(groups[i][1] for i in same) == target and (n is None or len(same) == n):
@@ -1311,7 +1313,7 @@ class Engine:
             if pick is None:
                 continue
             chosen = {groups[i][0] for i in pick}
-            used |= chosen
+            used |= {(rk, e2e) for e2e in chosen}
             rows = payrun_rows(g[g.end_to_end_id.isin(chosen)], txn["account_id"])
             if rows:
                 self.emit(t, rows, "confirming")
