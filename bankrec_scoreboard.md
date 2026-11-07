@@ -26,3 +26,13 @@
 | 2026-11-06 20:28 | live | submissions\live_v2.csv.gz | valid (no golden: upload to score) | LIVE v2 = sample v17 engine (88.71) |
 | 2026-11-06 20:34 | live | submissions\live_v3.csv.gz | valid (no golden: upload to score) | LIVE v3 = sample v20 engine (90.78) |
 | 2026-11-06 20:53 | live | submissions\live_v4.csv.gz | valid (no golden: upload to score) | LIVE v4 = sample v21 engine (91.38) |
+| 2026-11-07 10:05 | train 2025-03 | submissions\m2025-03_v21.csv.gz | 80.25 | TRAIN 2025-03 held-out, v21 engine |
+| 2026-11-07 10:10 | sample | submissions\sample_v22.csv.gz | 91.49 | v22 acct ccy from master, near-set subset search, exact-name tie |
+| 2026-11-07 10:13 | train 2025-03 | submissions\m2025-03_v22.csv.gz | 83.54 | v22 acct ccy from master, near-set subset search, exact-name tie |
+| 2026-11-07 10:17 | sample | submissions\sample_v24.csv.gz | 91.43 | v24 run-id join + bitset last resort |
+| 2026-11-07 10:19 | train 2025-03 | submissions\m2025-03_v23.csv.gz | 86.06 | v23 payment runs joined by quoted e2e/run id (FX transfers, mixed-currency runs) |
+| 2026-11-07 10:21 | train 2025-03 | submissions\m2025-03_v24.csv.gz | 85.56 | v24 + exact bitset subset-sum as last resort for known payers |
+| 2026-11-07 10:23 | sample | submissions\sample_v23.csv.gz | 91.44 | v23 run-id join for payment runs |
+| 2026-11-07 10:25 | train 2025-03 | submissions\m2025-03_v23b.csv.gz | 86.02 | v23 re-check after revert |
+| 2026-11-07 10:26 | sample | submissions\sample_v23s1.csv.gz | 91.47 | v23 seed0 a |
+| 2026-11-07 10:27 | sample | submissions\sample_v23s2.csv.gz | 91.47 | v23 seed0 b |

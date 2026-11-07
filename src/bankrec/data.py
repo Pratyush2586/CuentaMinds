@@ -177,6 +177,68 @@ def load(root: Path | str, phase: str) -> Data:
     return data
 
 
+def _batch_window(d: Path, lo_ym: str, hi_ym: str) -> pd.DataFrame:
+    frames = []
+    for f in sorted(glob.glob(str(d / "**" / "*.csv"), recursive=True)):
+        m = _YM.search(os.path.basename(f))
+        if m and lo_ym <= m.group(1) <= hi_ym and not os.path.basename(f).startswith("._"):
+            frames.append(read(f).assign(source_file=os.path.basename(f)))
+    return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+
+
+def load_train_month(root: Path | str, ym: str) -> tuple[Data, Path]:
+    """Dev evaluation that mimics LIVE on one TRAIN month (ym = 'YYYY-MM'): that month's bank lines, the FULL open-item
+    book at month start rebuilt from TRAIN's golden (like open_items_at_start), items settled in the previous 6 months
+    kept with open 0, batch files of the month and the 4 before. Returns (data, path of the month's golden)."""
+    root = Path(root)
+    d, m = find_phase_dir(root, "train"), find_masters(root, "train")
+    start = pd.Timestamp(f"{ym}-01")
+    s, e = start.strftime("%Y-%m-%d"), (start + pd.offsets.MonthEnd(0)).strftime("%Y-%m-%d")
+    cache = root / "cache" / f"month_{ym}"
+    cache.mkdir(parents=True, exist_ok=True)
+    tx_all = read(d / "bank_transactions.csv.gz")
+    txns = _num(tx_all[(tx_all.booking_date >= s) & (tx_all.booking_date <= e)].reset_index(drop=True),
+                ["amount", "orig_amount"])
+    gpath, ipath = cache / "golden.csv.gz", cache / "items.csv.gz"
+    if not (gpath.exists() and ipath.exists()):
+        g = read(d / "golden_allocations.csv.gz")
+        g[g.bank_txn_id.isin(set(txns.bank_txn_id))].to_csv(gpath, index=False)
+        before = set(tx_all.bank_txn_id[tx_all.booking_date < s])
+        items = _items(d, [])
+        upto = (pd.Timestamp(e) + pd.Timedelta(days=3)).strftime("%Y-%m-%d")
+        items = items[items.issue_date <= upto].reset_index(drop=True)
+        g = g[(g.item_id != "") & g.bank_txn_id.isin(before)]
+        g = g.assign(amount=pd.to_numeric(g.amount)).sort_values("bank_txn_id", kind="stable")
+        tot = dict(zip(items.item_id, items.total))
+        open_ = {}
+        for item, amt, exc in zip(g.item_id, g.amount, g.exception):
+            if item not in tot:
+                continue
+            cur = open_.get(item, tot[item])
+            open_[item] = cur + amt if exc == "RETURNED" else 0.0 if exc in FULL_CLEAR else max(0.0, cur - amt)
+        items["open"] = [open_.get(i, t) for i, t in zip(items.item_id, items.total)]
+        floor = (start - pd.DateOffset(months=6)).strftime("%Y-%m-%d")
+        items = items[(items.open > 0.005) | (items.issue_date >= floor)]
+        items.to_csv(ipath, index=False)
+    items = read(ipath).reindex(columns=ITEM_COLS).fillna("")
+    items = _num(items, ["total", "open"]).reset_index(drop=True)
+    data = Data(
+        phase="train", phase_dir=d, masters_dir=m, txns=txns, items=items,
+        customers=read(m / "customers.csv"), suppliers=read(m / "suppliers.csv"),
+        categories=list(read(m / "categories.csv").category),
+        payment_terms=_num(read(m / "payment_terms.csv"), ["days", "early_payment_discount_pct", "discount_days"]),
+        fx=_num(read(m / "fx_rates.csv"), ["units_per_eur"]),
+        bank_accounts=read(m / "bank_accounts.csv"), entities=read(m / "entities.csv"),
+    )
+    lo = (start - pd.DateOffset(months=LOOKBACK_MONTHS)).strftime("%Y%m")
+    hi = start.strftime("%Y%m")
+    data.dd = _num(_batch_window(d / "direct_debit_batches", lo, hi), ["batch_total", "amount"])
+    data.cards = _num(_batch_window(d / "card_settlements", lo, hi), ["gross", "fee", "net"])
+    data.cheques = _num(_batch_window(d / "cheque_deposits", lo, hi), ["deposit_total", "amount"])
+    data.payruns = _num(_batch_window(d / "payment_runs", lo, hi), ["transfer_amount", "document_amount"])
+    return data, gpath
+
+
 FULL_CLEAR = {"", "FX_DIFFERENCE", "SHORT_DISCOUNT", "SHORT_WITHHOLDING", "SHORT_BANK_CHARGES", "OVERPAYMENT"}
 
 

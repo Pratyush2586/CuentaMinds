@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from collections import Counter
@@ -39,9 +40,13 @@ def cmd_train_nonitem(a) -> int:
     exclude = set()
     if a.exclude_sample:
         exclude = set(D.read(D.find_phase_dir(root, "sample") / "bank_transactions.csv.gz").bank_txn_id)
+    out = _model_path(root)
+    if a.exclude_month:
+        exclude |= set(txns.bank_txn_id[txns.booking_date.str[:7] == a.exclude_month])
+        out = root / "cache" / f"nonitem_ex_{a.exclude_month}.json"
     m = NonItemModel.train(txns, golden, exclude)
-    m.save(_model_path(root))
-    print(f"trained on {len(txns) - len(exclude)} lines -> {_model_path(root)} ({len(m.table)} keys)")
+    m.save(out)
+    print(f"trained on {len(txns) - len(exclude)} lines -> {out} ({len(m.table)} keys)")
     return 0
 
 
@@ -57,13 +62,23 @@ def _print_score(res: dict) -> None:
 def cmd_run(a) -> int:
     root = Path(a.data)
     t0 = time.time()
-    data = D.load(root, a.phase)
     mp = _model_path(root)
+    if a.month:  # dev evaluation on one TRAIN month with the full open book (LIVE-like)
+        a.phase = "train"
+        data, golden = D.load_train_month(root, a.month)
+        start = pd.Timestamp(f"{a.month}-01")
+        advices = load_advices([data.phase_dir], root / "cache",
+                               min_received=(start - pd.DateOffset(days=35)).strftime("%Y-%m-%d"),
+                               max_received=data.txns.booking_date.max())
+        mp = root / "cache" / f"nonitem_ex_{a.month}.json" if (root / "cache" / f"nonitem_ex_{a.month}.json").exists() else mp
+    else:
+        data = D.load(root, a.phase)
+        golden = data.phase_dir / "golden_allocations.csv.gz"
+        earlier = {"sample": ["train"], "train": [], "live": ["train"], "final": ["live"]}[a.phase]
+        start = pd.Timestamp(data.txns.booking_date.min())
+        advices = load_advices([data.phase_dir] + [D.find_phase_dir(root, p) for p in earlier], root / "cache",
+                               min_received=(start - pd.DateOffset(days=35)).strftime("%Y-%m-%d"))
     model = NonItemModel.load(mp) if mp.exists() else None
-    earlier = {"sample": ["train"], "train": [], "live": ["train"], "final": ["live"]}[a.phase]
-    start = pd.Timestamp(data.txns.booking_date.min())
-    advices = load_advices([data.phase_dir] + [D.find_phase_dir(root, p) for p in earlier], root / "cache",
-                           min_received=(start - pd.DateOffset(days=35)).strftime("%Y-%m-%d"))
     t1 = time.time()
     eng = Engine(data, model, advices)
     eng.run()
@@ -71,12 +86,11 @@ def cmd_run(a) -> int:
     out = Path(a.out or f"submissions/{a.phase}_{datetime.now():%Y%m%d-%H%M%S}.csv.gz")
     write(eng.submission_rows(), out)
     print(f"{out}  load {t1 - t0:.0f}s match {t2 - t1:.0f}s  lines {len(data.txns)}  by stage {dict(Counter(eng.how.values()))}")
-    golden = data.phase_dir / "golden_allocations.csv.gz"
     res = score(out, golden if golden.exists() else None, list(data.txns.bank_txn_id), data.categories)
     _print_score(res)
     if res["ok"]:
         shown = res["score"] if golden.exists() else "valid (no golden: upload to score)"
-        line = f"| {datetime.now():%Y-%m-%d %H:%M} | {a.phase} | {out} | {shown} | {a.note} |\n"
+        line = f"| {datetime.now():%Y-%m-%d %H:%M} | {a.phase}{' ' + a.month if a.month else ''} | {out} | {shown} | {a.note} |\n"
         log = Path(LOG)
         if not log.exists():
             log.write_text("| time | phase | file | local score (validation only if no golden) | note |\n|---|---|---|---|---|\n",
@@ -97,6 +111,11 @@ def cmd_score(a) -> int:
 
 
 def main(argv=None) -> int:
+    # set iteration order depends on string hashing: pin the seed so every run is reproducible
+    if os.environ.get("PYTHONHASHSEED") != "0":
+        import subprocess
+        env = dict(os.environ, PYTHONHASHSEED="0")
+        return subprocess.call([sys.executable, "-m", "bankrec.cli"] + list(sys.argv[1:] if argv is None else argv), env=env)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(prog="bankrec")
@@ -104,12 +123,14 @@ def main(argv=None) -> int:
     s = sub.add_parser("train-nonitem")
     s.add_argument("--data", default=DEFAULT_DATA)
     s.add_argument("--exclude-sample", action="store_true", help="hold out the sample month (honest sample scores)")
+    s.add_argument("--exclude-month", default="", help="YYYY-MM held out -> cache/nonitem_ex_YYYY-MM.json (used by run --month)")
     s.set_defaults(fn=cmd_train_nonitem)
     s = sub.add_parser("run")
     s.add_argument("--data", default=DEFAULT_DATA)
     s.add_argument("--phase", default="sample", choices=D.PHASES)
     s.add_argument("--out")
     s.add_argument("--note", default="")
+    s.add_argument("--month", default="", help="YYYY-MM: evaluate on one TRAIN month with its golden (dev)")
     s.set_defaults(fn=cmd_run)
     s = sub.add_parser("score")
     s.add_argument("file")

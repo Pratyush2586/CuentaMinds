@@ -111,24 +111,27 @@ def _one(args) -> dict:
     return asdict(a)
 
 
-def load_advices(dirs: list[Path], cache_dir: Path, min_received: str = "", workers: int = 16) -> list[dict]:
+def load_advices(dirs: list[Path], cache_dir: Path, min_received: str = "", workers: int = 16,
+                 max_received: str = "") -> list[dict]:
     """Parse every advice listed in <dir>/remittance_advices/index.csv (cached). dirs[0] is the phase;
-    later dirs are earlier phases, of which only advices received on/after min_received are kept."""
+    later dirs are earlier phases, of which only advices received on/after min_received are kept.
+    With max_received (a TRAIN-month evaluation) dirs[0] is windowed too: min_received <= received <= max_received."""
     out, seen = [], set()
     for n, d in enumerate(dirs):
         ra = d / "remittance_advices"
         idx = ra / "index.csv"
         if not idx.exists():
             continue
-        floor = min_received if n else ""
-        cache = cache_dir / f"advices_{d.parent.name}_{d.name}_{floor or 'all'}.json"
+        floor = min_received if (n or max_received) else ""
+        ceil = max_received if not n else ""
+        cache = cache_dir / f"advices_{d.parent.name}_{d.name}_{floor or 'all'}{'_' + ceil if ceil else ''}.json"
         if cache.exists():
             parsed = json.loads(cache.read_text(encoding="utf-8"))
             out.extend(a for a in parsed if a["file"] not in seen)
             seen.update(a["file"] for a in parsed)
             continue
         rows = [r for r in csv.DictReader(open(idx, encoding="utf-8")) if r.get("received_date", "") >= floor
-                and r["file"] not in seen]
+                and (not ceil or r.get("received_date", "") <= ceil) and r["file"] not in seen]
         jobs = [(str(ra), r["file"], {"entity": r.get("entity", ""), "payer": r.get("payer_name", ""),
                                        "received": r.get("received_date", "")}) for r in rows
                 if not os.path.basename(r["file"]).startswith("._")]

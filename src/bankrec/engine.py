@@ -68,6 +68,7 @@ class Engine:
         for k, p in enumerate(self.party):
             self.by_party[p].append(k)
         self.acct_entity = dict(zip(data.bank_accounts.account_id, data.bank_accounts.entity))
+        self.acct_ccy = dict(zip(data.bank_accounts.account_id, data.bank_accounts.currency))
         self.result: dict[str, list[Row]] = {}
         self.how: dict[str, str] = {}
         self._terms = {r.code: (r.early_payment_discount_pct or 0, r.discount_days or 0)
@@ -493,7 +494,10 @@ class Engine:
             nw = min(len(n.split()) for n in self.party_names[p] if n) if self.party_names[p] else 99
             if best >= min(2, nw):
                 good.add(p)
-        return good if len(good) <= 3 else set()
+        if len(good) > 3:  # common words tie many parties: keep only an exact full-name match
+            exact = {p for p in good if any(name_key(n) == name_key(src) for n in self.party_names[p] if n)}
+            return exact if 0 < len(exact) <= 3 else set()
+        return good
 
     def subset(self, txn: dict, ks: list[int]) -> list[int] | None:
         """Items of ks (oldest first) whose net open amount equals the cash; FIFO preference."""
@@ -522,11 +526,17 @@ class Engine:
             run += vals[i]
             if run == target:
                 return [ks[j] for j in by_due[: n + 1]]
+        near = self._near_sets(txn, ks, vals, target, by_due)
+        if near:
+            return near
         neg = -sum(v for v in vals if v < 0)
         keep = [i for i, v in enumerate(vals) if v <= target + neg]   # an item bigger than the cash cannot be in
         ks, vals = [ks[i] for i in keep], [vals[i] for i in keep]
-        if len(ks) > MAX_SUBSET_ITEMS:
-            ks, vals = ks[:MAX_SUBSET_ITEMS], vals[:MAX_SUBSET_ITEMS]
+        if len(ks) > MAX_SUBSET_ITEMS:  # big open books: search the items due closest to the payment, not the oldest
+            ref = txn["booking_date"]
+            idx = sorted(range(len(ks)), key=lambda i: abs(_days(self.due[ks[i]] or self.issue[ks[i]], ref)))
+            idx = sorted(idx[:MAX_SUBSET_ITEMS])
+            ks, vals = [ks[i] for i in idx], [vals[i] for i in idx]
         neg = -sum(v for v in vals if v < 0)
         hi = target + neg                      # sums above this can never come back down to target
         back: dict[int, tuple[int, int]] = {0: (0, -1)}   # sum -> (previous sum, item index)
@@ -546,6 +556,46 @@ class Engine:
             if len(back) > 60_000:
                 break
         return self._complement(ks, vals, target)
+
+    def _near_sets(self, txn: dict, ks: list[int], vals: list[int], target: int, by_due: list[int]) -> list[int] | None:
+        """Exact sets that are cheap to enumerate on a big open book: a contiguous run of invoices (by issue or due
+        date), or any 2 or 3 items. Several solutions -> the one whose due dates are closest to the payment."""
+        n = len(ks)
+        if n < 2:
+            return None
+        ref = txn["booking_date"]
+        dist = [abs(_days(self.due[k] or self.issue[k], ref)) for k in ks]
+        sols: list[tuple[float, list[int]]] = []
+        for order in (list(range(n)), by_due):        # contiguous windows: prefix[j] - prefix[i] == target
+            seen = {0: [0]}
+            run = 0
+            for j, i in enumerate(order, 1):
+                run += vals[i]
+                for a in seen.get(run - target, ()):
+                    if j - a >= 2:
+                        idx = order[a:j]
+                        sols.append((max(dist[x] for x in idx), idx))
+                seen.setdefault(run, []).append(j)
+            if len(sols) > 50:
+                break
+        if not sols and n <= 400:                      # pairs
+            pos: dict[int, list[int]] = defaultdict(list)
+            for i, v in enumerate(vals):
+                for a in pos.get(target - v, ()):
+                    sols.append((max(dist[a], dist[i]), [a, i]))
+                pos[v].append(i)
+            if not sols and n <= 150:                  # triples
+                for i in range(n):
+                    for j in range(i + 1, n):
+                        for c in pos.get(target - vals[i] - vals[j], ()):
+                            if c > j:
+                                sols.append((max(dist[i], dist[j], dist[c]), [i, j, c]))
+                    if len(sols) > 50:
+                        break
+        if not sols:
+            return None
+        sols.sort(key=lambda x: (x[0], len(x[1])))
+        return sorted((ks[i] for i in sols[0][1]), key=lambda k: (self.issue[k], self.ids[k]))
 
     def _complement(self, ks: list[int], vals: list[int], target: int) -> list[int] | None:
         """Everything open minus a few items: find the small set left out (newest first) so the rest is the cash."""
@@ -835,6 +885,7 @@ class Engine:
             elif self.known_payer(txn):
                 # a known payer whose amount we could not explain: most likely a missed match, not an
                 # unidentified receipt; keep the UNIDENTIFIED exception for receipts nobody can be tied to
+                # (tried: an exact bitset subset-sum over its open items here -> too many spurious sets, 86.06 -> 85.56)
                 self.emit(t, [Row(None, None, "UNIDENTIFIED", "")], "unmatched_known_payer")
             else:
                 self.emit(t, [Row(None, None, "UNIDENTIFIED", "UNIDENTIFIED")], "unidentified")
@@ -847,8 +898,19 @@ class Engine:
         tx = self.d.txns
         blobs = {r["bank_txn_id"]: bank_blob(r) for r in tx.to_dict("records")}
         by_acct_amt: dict[tuple[str, int], list[dict]] = defaultdict(list)
+        by_ref: dict[str, list[dict]] = defaultdict(list)   # payment-run / end-to-end ids quoted in the bank text
         for r in tx.to_dict("records"):
             by_acct_amt[(r["account_id"], round(float(r["amount"]) * 100))].append(r)
+            if float(r["amount"]) < 0:
+                for tok in set(_RUN_REF.findall(blobs[r["bank_txn_id"]])):
+                    by_ref[tok].append(r)
+
+        def find_ref(acct: str, ref: str, date: str, days: int = 7) -> str | None:
+            """A debit of this account quoting this exact run / end-to-end id: amount-free, so FX transfers (debited
+            in the account currency, listed in the invoice currency) and runs mixing currencies still join."""
+            c = [r for r in by_ref.get(ref, ()) if r["account_id"] == acct and r["bank_txn_id"] not in self.result
+                 and abs(_days(r["booking_date"], date)) <= days]
+            return c[0]["bank_txn_id"] if len(c) == 1 else None
 
         def find(acct: str, amount: float, date: str, ids: list[str], days: int = 7) -> str | None:
             cands = [r for r in by_acct_amt.get((acct, round(amount * 100)), ())
@@ -941,7 +1003,7 @@ class Engine:
         if len(pr):
             def payrun_rows(g: pd.DataFrame, acct: str) -> list[Row]:
                 side_ent = self.acct_entity.get(acct, "")
-                acct_ccy = acct.rsplit("-", 2)[-1] if acct.count("-") >= 2 else ""
+                acct_ccy = self.acct_ccy.get(acct, "")  # from the master: ids like IT01-VALD-EUR-2 carry a suffix
                 rows = []
                 for r in g.itertuples():
                     amt = abs(float(r.document_amount))
@@ -968,7 +1030,7 @@ class Engine:
                 f = g.iloc[0]
                 total = float(f.transfer_amount) if f.run_type == "transfers" else round(
                     g.drop_duplicates("end_to_end_id").transfer_amount.sum(), 2)
-                t = find(f.debtor_account_id, -total, f.execution_date, [str(key), str(f.end_to_end_id)])
+                t = find(f.debtor_account_id, -total, f.execution_date, [str(key), str(f.end_to_end_id)])                     or find_ref(f.debtor_account_id, str(key), f.execution_date)
                 if t:
                     rows = payrun_rows(g, f.debtor_account_id)
                     if rows:
@@ -1029,6 +1091,9 @@ _MONTHS = {
 _MONTH_OF = {w: m for m, ws in _MONTHS.items() for w in ws.split()}
 _MONTH_RE = re.compile(r"(?:(MANT|SERVICE|SERVICES|SERVICIOS|SERVICIO|WARTUNG|ENTRETIEN|CUOTA|FEE|MAINT|MANUTENZIONE|"
                        r"MENSUALIDAD|ABONO|RENT|ALQUILER|MIETE|LOYER)\.?\s+)?\b([A-Z]{3,10})\.?\s*(\d{4}|\d{2})?\b")
+
+
+_RUN_REF = re.compile(r"\b[A-Z]{2}\d{10,14}(?:-\d{2,5})?\b")
 
 
 def service_month(blob: str, booking_date: str) -> str | None:
