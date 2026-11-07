@@ -776,12 +776,33 @@ class Engine:
                 attempts.append(lambda: self.settle(txn, quoted, force_single=True))
         attempts += [lambda: self._settle_sub(txn, cands), lambda: self.settle_fx(txn, cands),
                      lambda: self._explained_single(txn, cands), lambda: self._withholding_multi(txn, cands),
-                     lambda: self._overpaid_single(txn, quoted or cands)]
+                     lambda: self._overpaid_single(txn, quoted or cands),
+                     lambda: self._instalment(txn, blob, quoted or cands)]
         for f in attempts:
             r = f()
             if r is not None:
                 return r
         return None
+
+    def _instalment(self, txn: dict, blob: str, cands: list[int]) -> list[Row] | None:
+        """An instalment of one invoice ('INSTALMENT 1/3', 'PRESTACAO 2/6', 'ECHEANCE 1/6'): the cash is total/N of
+        an open invoice -> PARTIAL for the paid amount. With a k/N marker N is known; without one, only a single
+        invoice matching one of the usual plans (2, 3, 4, 6, 12) is accepted."""
+        cash = abs(float(txn["amount"]))
+        m = _INSTALMENT_RE.search(blob)
+        plans = [int(m.group(2))] if m and 1 < int(m.group(2)) <= 36 else [2, 3, 4, 6, 12]
+        hits = []
+        for k in cands:
+            if self.is_credit(k) or self.ccy[k] != txn["currency"] or self.open[k] <= cash + CENT:
+                continue
+            for n in plans:
+                share = round(self.total[k] / n, 2)
+                if abs(share - cash) <= max(0.02, 0.0005 * cash):
+                    hits.append(k)
+                    break
+        if len(hits) != 1:
+            return None
+        return [Row(self.ids[hits[0]], round(cash, 2), "", "PARTIAL")]
 
     def _explained_single(self, txn: dict, cands: list[int]) -> list[Row] | None:
         """One open invoice whose shortfall is a policy reason (discount in terms, withholding, bank charges)."""
@@ -1175,6 +1196,7 @@ _MONTH_RE = re.compile(r"(?:(MANT|SERVICE|SERVICES|SERVICIOS|SERVICIO|WARTUNG|EN
                        r"MENSUALIDAD|ABONO|RENT|ALQUILER|MIETE|LOYER)\.?\s+)?\b([A-Z]{3,10})\.?\s*(\d{4}|\d{2})?\b")
 
 
+_INSTALMENT_RE = re.compile(r"(?:INSTAL+MENT|PRESTA[CÇ]A?O|PARCELA|ECHEANCE|PLAZO|CUOTA|RATA|TEILZAHLUNG|RATE)\D{0,6}(\d{1,2})\s*/\s*(\d{1,2})")
 _RUN_REF = re.compile(r"\b[A-Z]{2}\d{10,14}(?:-\d{2,5})?\b")
 
 
