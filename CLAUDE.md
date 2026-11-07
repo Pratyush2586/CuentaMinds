@@ -39,3 +39,11 @@ every row keeps `source_file`/`source_row`; unparsed counts → `Dataset.notes`)
 - Every leaderboard submission gets a scored/logged line in `scoreboard.md` with a note of what changed.
 - Prefer fixing the mapping over changing check code; prefer policy changes over code changes; change check code only with a test that reproduces the real-data case (anonymised, built with `tests/helpers.py`).
 - Keep `use_agents=False` (rules-only) as the safe submission baseline; only submit agent runs that score ≥ rules-only.
+
+## bankrec (the hackathon submission: Grupo Valtermia bank reconciliation)
+- Developer guide: `docs/BANKREC_GUIDE.md` (architecture, commands, evaluation, status, FINAL runbook). Experiment
+  protocol: `docs/AUTORESEARCH.md`.
+- **Keep the guide current**: every kept/promoted change, new LIVE score, evaluation change, new command or new pitfall
+  updates `docs/BANKREC_GUIDE.md` (§9 status/history/log, §16 changelog; see its §15) in the same commit.
+- Measure on TRAIN months (`bankrec run --month YYYY-MM`, `scripts/autoresearch.py eval`), not on the sample month.
+- All code, comments, docs and commit messages in English (Spanish only as data patterns the engine must recognise).
