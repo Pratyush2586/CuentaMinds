@@ -297,3 +297,18 @@ robocopy ..\nova7nov\data\valtermia .\data\valtermia /E /MT:16 /NFL /NDL /NJH /N
 git checkout main
 git pull
 ```
+
+## 15. Interactive runbook script (`scripts/runbook.ps1`)
+
+Runs §14 + LIVE + FINAL as numbered steps. Each step shows the reason and the exact command, then waits:
+`[Enter]` run · `s` skip · `q` quit (prints `-From N` to resume). A failed step offers retry / skip / quit.
+A transcript is written to `runbook_<time>.log` in the clone. Uploads still need the checkpoint (`y` / `UPLOAD`).
+
+```powershell
+# from PS C:\Users\learn\Documents\prat\Hackathon>
+powershell -ExecutionPolicy Bypass -File .\nova7nov\scripts\runbook.ps1                      # setup + reproduce v16 (11 steps)
+powershell -ExecutionPolicy Bypass -File .\nova7nov\scripts\runbook.ps1 -Phase live -Tag v17  # leaderboard, build + checkpoint, report
+powershell -ExecutionPolicy Bypass -File .\nova7nov\scripts\runbook.ps1 -Phase final          # FINAL at 18:00
+powershell -ExecutionPolicy Bypass -File .\nova7nov\scripts\runbook.ps1 -DryRun -Phase all    # just list every step
+powershell -ExecutionPolicy Bypass -File .\nova7nov\scripts\runbook.ps1 -From 9               # resume at step 9
+```
