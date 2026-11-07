@@ -156,6 +156,8 @@ def load(root: Path | str, phase: str) -> Data:
         fx=_num(read(m / "fx_rates.csv"), ["units_per_eur"]),
         bank_accounts=read(m / "bank_accounts.csv"), entities=read(m / "entities.csv"),
     )
+    if phase == "final":
+        _merge_previous_masters(data, root)
     start = pd.Timestamp(txns.booking_date.min())
     min_ym = (start - pd.DateOffset(months=LOOKBACK_MONTHS)).strftime("%Y%m")
     before = [find_phase_dir(root, p) for p in {"sample": ["train"], "train": [], "live": ["train"],
@@ -237,6 +239,29 @@ def load_train_month(root: Path | str, ym: str) -> tuple[Data, Path]:
     data.cheques = _num(_batch_window(d / "cheque_deposits", lo, hi), ["deposit_total", "amount"])
     data.payruns = _num(_batch_window(d / "payment_runs", lo, hi), ["transfer_amount", "document_amount"])
     return data, gpath
+
+
+def _merge_previous_masters(data: Data, root: Path) -> None:
+    """FINAL ships masters_final with the LATEST names / IBANs only. Customers rename and change banks during the
+    phase, so lines early in 2026 still carry old names and accounts: keep the previous masters' rows too
+    (previous first, so single-valued attributes such as country take the final value)."""
+    hits = [Path(p).parent for p in glob.glob(str(root / "**" / "categories.csv"), recursive=True)
+            if Path(p).parent.name == "masters"]
+    if not hits or hits[0] == data.masters_dir:
+        return
+    old = hits[0]
+    for attr, name in (("customers", "customers.csv"), ("suppliers", "suppliers.csv"),
+                       ("bank_accounts", "bank_accounts.csv"), ("entities", "entities.csv")):
+        if (old / name).exists():
+            merged = pd.concat([read(old / name), getattr(data, attr)], ignore_index=True).fillna("")
+            setattr(data, attr, merged.drop_duplicates().reset_index(drop=True))
+    if (old / "fx_rates.csv").exists():
+        fx = pd.concat([_num(read(old / "fx_rates.csv"), ["units_per_eur"]), data.fx], ignore_index=True)
+        data.fx = fx.drop_duplicates(["date", "currency"], keep="last").sort_values(["currency", "date"]).reset_index(drop=True)
+    if (old / "payment_terms.csv").exists():
+        pt = pd.concat([_num(read(old / "payment_terms.csv"), ["days", "early_payment_discount_pct", "discount_days"]),
+                        data.payment_terms], ignore_index=True)
+        data.payment_terms = pt.drop_duplicates("code", keep="last").reset_index(drop=True)
 
 
 FULL_CLEAR = {"", "FX_DIFFERENCE", "SHORT_DISCOUNT", "SHORT_WITHHOLDING", "SHORT_BANK_CHARGES", "OVERPAYMENT"}
