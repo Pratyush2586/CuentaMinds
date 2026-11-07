@@ -85,6 +85,7 @@ def cmd_run(a) -> int:
     t2 = time.time()
     out = Path(a.out or f"submissions/{a.phase}_{datetime.now():%Y%m%d-%H%M%S}.csv.gz")
     write(eng.submission_rows(), out)
+    _write_stats(eng, data, out)
     print(f"{out}  load {t1 - t0:.0f}s match {t2 - t1:.0f}s  lines {len(data.txns)}  by stage {dict(Counter(eng.how.values()))}")
     res = score(out, golden if golden.exists() else None, list(data.txns.bank_txn_id), data.categories)
     _print_score(res)
@@ -98,6 +99,25 @@ def cmd_run(a) -> int:
         with log.open("a", encoding="utf-8") as fh:
             fh.write(line)
     return 0 if res["ok"] else 1
+
+
+def _write_stats(eng: Engine, data, out: Path) -> None:
+    """Label-free run internals next to the submission (<out>.stats.json), used by scripts/final_gate.py."""
+    ent = dict(zip(data.txns.bank_txn_id, data.txns.entity))
+    by_entity: dict[str, Counter] = {}
+    for t, how in eng.how.items():
+        by_entity.setdefault(ent.get(t, "?"), Counter())[how] += 1
+    res = tot = 0
+    for a in eng.advices:
+        for ln in a["lines"]:
+            tot += 1
+            res += eng._adv_doc(a, ln) is not None
+    stats = {"lines": len(data.txns), "by_stage": dict(Counter(eng.how.values())),
+             "by_entity_stage": {e: dict(c) for e, c in sorted(by_entity.items())},
+             "advices": len(eng.advices), "advices_used": len(eng.adv_used),
+             "advice_lines": tot, "advice_lines_resolved": res, "masters": str(data.masters_dir),
+             "fx_max_date": str(data.fx.date.max()), "entities": sorted(data.entities.entity.unique())}
+    Path(str(out) + ".stats.json").write_text(json.dumps(stats, indent=1), encoding="utf-8")
 
 
 def cmd_score(a) -> int:

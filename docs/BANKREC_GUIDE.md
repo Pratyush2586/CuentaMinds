@@ -126,6 +126,7 @@ close" prototype with a Gemini/Claude agent layer, kept for background (its ~300
 | `scripts/submit.py` | **upload pipeline**: organisers' 4-step API (upload-url → S3 → score → poll 5 s). Validates locally first, 3-min spacing, daily quota, FINAL double confirmation; saves the scored JSON to `submissions/results/` |
 | `scripts/live_report.py` | **LIVE feedback**: platform result vs previous upload vs TRAIN months, per segment, ranked by lines lost |
 | `scripts/pipeline.py` | **end-to-end**: `bankrec run --phase live` → validate → (`--submit`) upload + score → report |
+| `scripts/final_gate.py` | **FINAL readiness gate**: label-free profile, calibrated on scored LIVE files → PASS/WARN/FAIL (§8.4) |
 | `bankrec_scoreboard.md` | every `bankrec run` appends a line here (time, phase, file, score, note) |
 | `docs/BANKREC_GUIDE.md` | this guide |
 | `docs/AUTORESEARCH.md` | the experiment protocol the agent follows ("program.md") |
@@ -396,6 +397,42 @@ Following [karpathy/autoresearch](https://github.com/karpathy/autoresearch). The
   `submission.py`, `data.load_train_month`. A change to the evaluation itself is a separate `fix(eval):` commit,
   followed by a new **baseline**, as with the advice window on 2026-11-07.
 
+### 8.4 FINAL readiness: internal evaluation without a golden (`scripts/final_gate.py`)
+
+FINAL has no golden and **one** scored upload, so the score can't be checked. Three layers of evidence:
+
+| layer | question | tool |
+|---|---|---|
+| 1. TRAIN months | is the engine logic right? | `autoresearch.py eval` (official scorer, real golden) |
+| 2. LIVE uploads | does it carry over to unseen, drifted data? | `pipeline.py --submit` + `live_report.py` (per segment vs TRAIN) |
+| 3. FINAL gate | did anything break on the FINAL inputs? | `final_gate.py check final FILE` (label-free) |
+
+**The gate (layer 3)** profiles a submission without labels:
+- share of lines with an allocation, UNIDENTIFIED rates, amount coverage and rows per line, overall, per side and **per entity**;
+- the exception mix;
+- from the run's `<file>.stats.json`: stage mix per entity, **advice-line resolution**, masters folder, fx end date.
+
+It compares that profile with the best **scored LIVE file**. Verdicts:
+- **FAIL**: a new entity (ZA01) mostly unallocated or unidentified, or the run didn't use `masters_final`.
+- **WARN**: overall allocation −3pp; an entity −10pp; UNIDENTIFIED ×2; an exception rate ×2.5 or ×0.4; advice resolution < 95 %; fx rates ending before June 2026.
+- **PASS**: none of the above.
+
+It also prints a rough estimate: the baseline LIVE score minus half the lost allocation share.
+
+**Calibration** (`final_gate.py calibrate`): on the scored LIVE files the proxies move with the real score.
+
+| file | LIVE | allocated | UNIDENTIFIED cat. |
+|---|---|---|---|
+| live_v4 | 79.55 | 0.841 | 0.083 |
+| live_v7 | 87.56 | 0.850 | 0.076 |
+| live_v8 | 87.90 | 0.856 | 0.070 |
+
+Honest limits: the proxies catch **breakage** (an entity, parser or master that didn't load), not subtle allocation
+errors. Allocation quality is what layers 1–2 measure. Re-run `calibrate` after each new LIVE score.
+
+**Agentic use at 18:00:** run FINAL → gate → if WARN/FAIL, the per-entity table and `by_entity_stage` show where to
+look → one generic fix → re-run (about 20 min) → gate again → upload. The time budget allows **one** fix iteration (§11).
+
 ---
 
 ## 9. Current status, results and known gaps
@@ -527,10 +564,16 @@ Times are **Madrid**. The server deadlines are: FINAL data at **18:00**, submiss
    203,083 lines, 17 entities and fx up to 2025-12-31.
 4. **Run:** `.venv/Scripts/bankrec run --phase final --out submissions/final_v1.csv.gz --note "FINAL = engine $(git rev-parse --short HEAD)"`.
    It stays quiet for the first minutes while PDFs and advices are parsed. Don't kill it.
-5. **Check:** `"ok": true`. Stage counts should be proportional to LIVE v7: about 203k lines, payrun ~54k, party ~60k, ref ~39k,
-   unidentified ~2.5k. **Tens of thousands of unidentified means something didn't load.** Then run
-   `bankrec score submissions/final_v1.csv.gz --phase final` again and check the size is < 60 MB.
-6. **Upload once.** Pratyush uploads it on **Enviar** (Submit). If validation rejects it, fix it and re-upload. Once a file is accepted, stop.
+5. **Check:** `"ok": true`, then the **readiness gate**:
+   `.venv/Scripts/python scripts/final_gate.py check final submissions/final_v1.csv.gz`.
+   - **PASS**: upload.
+   - **WARN**: read the flagged entity, exception or advice line and decide (upload if it's explainable drift, e.g. slower payments in 2026).
+   - **FAIL**: fix it (one iteration only; it must finish by ~19:05), re-run and re-gate.
+
+   Stage counts should be proportional to LIVE: about 203k lines, payrun ~54k, party ~61k, ref ~39k, unidentified ~2.5k.
+6. **Upload once.** Either Pratyush uploads it on **Enviar** (Submit) in an Incognito window, or, with his explicit go,
+   `.venv/Scripts/python scripts/submit.py FINAL submissions/final_v1.csv.gz --i-confirm-final-is-one-shot`. That
+   re-validates, and refuses if a FINAL submission is already scored. If validation rejects it, fix it and re-upload. Once a file is accepted, stop.
    Then `git add bankrec_scoreboard.md && git commit -m "chore: FINAL logged" && git push`.
 
 | problem | action |
@@ -658,4 +701,5 @@ Discarded experiments are recorded only in §9.3 (one line), so nobody tries the
 | 11-07 11:40 | 8469efa | within a day, referenced lines matched first |
 | 11-07 11:50 | f72c002 | guide rewritten to current state |
 | 11-07 12:10 | c3731f3 | LIVE v7 = 87.56; drift fix for the Sept-2025 advice layout; drift-fix rule in AUTORESEARCH.md |
-| 11-07 12:25 | – | LIVE v8 = 87.90; upload + feedback pipeline (`submit.py`, `live_report.py`, `pipeline.py`) |
+| 11-07 12:25 | cf56148 | LIVE v8 = 87.90; upload + feedback pipeline (`submit.py`, `live_report.py`, `pipeline.py`) |
+| 11-07 12:30 | – | FINAL readiness gate (`final_gate.py`), run stats sidecar (`<file>.stats.json`), guide §8.4 |
