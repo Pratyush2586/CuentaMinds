@@ -49,3 +49,5 @@
 | 2026-11-07 13:03 | live UPLOAD | submissions/live_v10.csv.gz | 90.69 (platform) | dc15838 instalments + partial shares (eval 90.77) |
 | 2026-11-07 13:25 | live | submissions\live_v11.csv.gz | valid (no golden: upload to score) | LIVE v11 = 4755d1e one partial among quoted invoices (eval 90.88) |
 | 2026-11-07 13:26 | live UPLOAD | submissions/live_v11.csv.gz | 90.81 (platform) | 4755d1e one partial among quoted invoices (eval 90.88) |
+| 2026-11-07 14:00 | live | submissions\live_v12.csv.gz | valid (no golden: upload to score) | LIVE v12 = 3d67c36 advances/returns/chargebacks/dup refunds (eval 91.16) |
+| 2026-11-07 14:01 | live UPLOAD | submissions/live_v12.csv.gz | 91.11 (platform) | 3d67c36 advances/returns/chargebacks/dup refunds (eval 91.16) |

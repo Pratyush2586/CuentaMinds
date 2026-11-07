@@ -89,8 +89,14 @@ LOOP until the human stops you, or until **17:30** on FINAL day:
    - **crash**: read the traceback in the observation. A typo gets fixed and re-run. A broken idea gets discarded.
 6. Every 3–4 kept experiments: run `scripts/autoresearch.py holdout` (month `2025-05`, never used for decisions) and the
    sample. If the hold-out falls while the dev months rise, you are overfitting: revert to the last commit that held up.
-7. **Promote**: when a kept commit also holds up on the hold-out, merge it to `main`, run LIVE
-   (`bankrec run --phase live`), and give the file to the human to upload.
+7. **Before promoting**:
+   - `scripts/overfit_guard.py main HEAD` must report 0 findings;
+   - `scripts/analyst.py skeptic <commit>` (Claude) gives a second opinion on overfitting, FINAL drift and runtime.
+     Apply narrow fixes. A robustness fix within noise (±0.02) may be kept as `fix(robustness)`.
+8. **Promote**: when a kept commit also holds up on the hold-out, merge it to `main`, run LIVE
+   with `scripts/pipeline.py --tag vN --submit` (uploads through the API and reports per segment), then add a row
+   to `bankrec_calibration.tsv` (engine commit, eval, LIVE score). After each LIVE upload, `scripts/analyst.py
+   hypotheses` proposes the next experiments.
 
 **Drift fixes** (behaviour that exists only in LIVE/FINAL, e.g. the Sept-2025 advice layout): TRAIN months cannot show
 the gain, so the harness will say DISCARD. Keep such a change only when (a) the dev months are neutral (no drop) and

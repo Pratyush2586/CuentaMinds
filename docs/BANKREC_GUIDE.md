@@ -1,7 +1,7 @@
 # CuentaMinds — Bank Reconciliation Engine: Developer Guide
 
 > **Who this is for:** a developer joining the team who must understand, run, evaluate, improve and submit this code.
-> **State as of:** 2026-11-07 12:10 (hackathon day) · `main` = drift fix `c3731f3` + docs · experiment branch `autoresearch/nov7`.
+> **State as of:** 2026-11-07 14:05 (hackathon day) · `main` = baseline tag `baseline-2026-11-07` · experiment branch `autoresearch/nov7`.
 > **Read order:** §1 (the problem) → §2 (setup) → §4 (architecture) → §8 (how we measure) → §10–11 (today's plan).
 > **This guide is kept current.** Every kept change updates §9 (status) and §16 (changelog); see §15.
 
@@ -117,32 +117,39 @@ close" prototype with a Gemini/Claude agent layer, kept for background (its ~300
 
 | path | what |
 |---|---|
+| `README.md` | project front page (results, how it works, quick start) |
 | `src/bankrec/` | **the reconciliation engine** (below) |
-| `scripts/autoresearch.py` | **experiment harness** (Karpathy-style loop, §8.3). Read-only during the loop |
-| `scripts/bankrec_pairs.py` | where (bank line, item) pairs are lost, per golden segment |
-| `scripts/bankrec_exc.py` | per-exception precision / recall / F1 |
-| `scripts/bankrec_diff.py` | the wrong lines of one segment: bank text, golden-only rows, ours-only rows |
-| `scripts/bankrec_probe.py` | look inside the engine for given lines (candidates, ranked parties, refs) |
-| `scripts/submit.py` | **upload pipeline**: organisers' 4-step API (upload-url → S3 → score → poll 5 s). Validates locally first, 3-min spacing, daily quota, FINAL double confirmation; saves the scored JSON to `submissions/results/` |
-| `scripts/live_report.py` | **LIVE feedback**: platform result vs previous upload vs TRAIN months, per segment, ranked by lines lost |
-| `scripts/pipeline.py` | **end-to-end**: `bankrec run --phase live` → validate → (`--submit`) upload + score → report |
-| `scripts/final_gate.py` | **FINAL readiness gate**: label-free profile, calibrated on scored LIVE files → PASS/WARN/FAIL (§8.4) |
-| `scripts/final_run.py` | **FINAL orchestrator**: checksum → extract → sanity → run → gate → Claude review → guarded upload |
-| `scripts/analyst.py` | **Claude personas** (advisory): `hypotheses`, `skeptic COMMIT`, `final-review GATE.txt` |
-| `scripts/overfit_guard.py` | static scan of engine diffs for memorised ids/dates/amounts/codes (exit 1 on findings) |
-| `bankrec_calibration.tsv` | TRAIN-eval vs LIVE-score pairs per engine commit |
-| `bankrec_scoreboard.md` | every `bankrec run` appends a line here (time, phase, file, score, note) |
+| `tests/bankrec/` | bankrec unit tests (FINAL masters merge) |
+| `bankrec_scoreboard.md` | every `bankrec run` and every platform upload appends a line here |
+| `bankrec_calibration.tsv` | TRAIN-eval vs LIVE-score pairs per engine commit (§8.4) |
 | `docs/BANKREC_GUIDE.md` | this guide |
 | `docs/AUTORESEARCH.md` | the experiment protocol the agent follows ("program.md") |
 | `docs/GETTING_STARTED.md`, `USER_GUIDE.md`, `HACKATHON_PLAYBOOK.md` | closeops docs (background) |
+
+**Scripts**, grouped by purpose:
+
+| group | script | what it does |
+|---|---|---|
+| analysis | `scripts/bankrec_pairs.py SUB [--month M]` | where (bank line, item) pairs are lost, per golden segment |
+| analysis | `scripts/bankrec_exc.py SUB [--month M]` | per-exception precision / recall / F1 |
+| analysis | `scripts/bankrec_diff.py SUB SEGMENT N [--month M]` | the wrong lines of one segment: bank text, golden-only rows, ours-only rows |
+| analysis | `scripts/bankrec_probe.py MONTH TXN...` | engine internals for given lines (candidates, ranked parties, refs) |
+| evaluation | `scripts/autoresearch.py baseline/eval/holdout/status` | **experiment harness** (§8.3). Read-only during the loop |
+| evaluation | `scripts/overfit_guard.py [BASE] [HEAD]` | static scan of engine diffs for memorised ids/dates/amounts/codes (exit 1 on findings) |
+| evaluation | `scripts/live_report.py [NEW] [OLD]` | **LIVE feedback**: platform result vs previous upload vs TRAIN months, ranked by lines lost |
+| evaluation | `scripts/final_gate.py calibrate / check PHASE FILE` | **FINAL readiness gate**: label-free profile, calibrated on scored LIVE files → PASS/WARN/FAIL |
+| agents (LLM) | `scripts/analyst.py hypotheses / skeptic COMMIT / final-review GATE.txt` | **Claude personas**, advisory (§8.5) |
+| submission | `scripts/submit.py LIVE\|FINAL FILE` | **upload pipeline**: the organisers' 4-step API with guards (§8.6) |
+| submission | `scripts/pipeline.py --tag vN [--submit]` | **end-to-end LIVE**: build → validate → upload + score → report |
+| submission | `scripts/final_run.py [--download] [--upload --i-confirm-final-is-one-shot]` | **FINAL orchestrator** (§11) |
 
 ### `src/bankrec/` file by file
 
 | file | lines | responsibility |
 |---|---|---|
-| `cli.py` | 146 | `bankrec train-nonitem / run / score`. Pins `PYTHONHASHSEED=0` (re-executes itself) so runs are reproducible |
-| `data.py` | 272 | loads a phase (`load`) or a **TRAIN month** (`load_train_month`): bank lines, item book with open amounts, masters, batch files |
-| `engine.py` | 1194 | **the matcher**: stages, subset search, party identification, exception rules |
+| `cli.py` | 166 | `bankrec train-nonitem / run / score`. Pins `PYTHONHASHSEED=0` (re-executes itself) so runs are reproducible |
+| `data.py` | 297 | loads a phase (`load`) or a **TRAIN month** (`load_train_month`): bank lines, item book with open amounts, masters, batch files |
+| `engine.py` | 1370 | **the matcher**: stages, subset search, party identification, exception rules |
 | `text.py` | 85 | `fold`, `norm`, `digits`, `tokens`, `bank_blob`, `name_key`, `DocIndex` (document-number lookup), `LEGAL` |
 | `advices.py` | 144 | parses remittance advices (pdf/xlsx/csv/txt) into refs, total and per-invoice lines. Parallel and cached |
 | `nonitem.py` | 77 | learned table: (sign, bank code, text shape) → category, trained on TRAIN golden |
@@ -158,19 +165,22 @@ close" prototype with a Gemini/Claude agent layer, kept for background (its ~300
    │
    ├─ data.load / data.load_train_month
    │     bank lines · item book (ARI/ARC/API/APC, OPEN amount at period start) · masters
-   │     batch files of the period + 4 months before (runs and batches settle later lines)
+   │     (FINAL: masters_final merged with the previous masters so old names/IBANs survive)
+   │     batch files of the period + 4 months before
    ├─ advices.load_advices  → parsed remittance advices (cache/advices_*.json)
    ├─ NonItemModel.load     → cache/nonitem.json (or nonitem_ex_<month>.json for an evaluation)
    │
    ├─ Engine(data, model, advices).run()
    │     1. stage_batches: exact joins with batch files
-   │          direct debits · card settlements · cheque deposits · payment runs · confirming
+   │          direct debits · card settlements · cheque/lockbox deposits (short stub numbers resolved) ·
+   │          payment runs (amount, else quoted e2e/run id) · confirming (beneficiary maturity)
    │     2. lines sorted by booking date; within a day, lines quoting our document numbers first
-   │        match_line(): return → advice → confident no-item → refs → party → credit refund → duplicate
-   │        (every allocation updates the open-item book)
+   │        match_line(): return → reversal/advance → advice → confident no-item → refs → party →
+   │                      credit refund → supplier duplicate refund → duplicate
+   │        (every allocation updates the open-item book; RETURNED re-opens)
    │     3. no_item() for whatever is left: category, or UNIDENTIFIED
    │
-   ├─ submission.write   → submissions/<file>.csv.gz
+   ├─ submission.write   → submissions/<file>.csv.gz   (+ <file>.stats.json run internals for the gate)
    ├─ submission.score   → official score (golden) or validation only (LIVE/FINAL)
    └─ bankrec_scoreboard.md   (unless --no-log)
 ```
@@ -242,35 +252,63 @@ All in `src/bankrec/engine.py`. Search for the method name.
 Lines are processed by booking date. **Within a day, lines that quote one of our document numbers go first**, so an
 unreferenced same-amount payment from the same payer can't take the invoice another line names.
 
-1. `try_return`: a returned direct debit or cheque re-opens the original collection → `RETURNED`.
-2. `try_advice`: a matching **remittance advice** (by ref, truncated ref + amount, or payer + amount + date).
-   `advice_rows` turns its lines into rows (see §6 for deductions).
-3. **Confident no-item:** the model is ≥ 90 % sure (≥ 20 examples) it's a fee, payroll, tax… → category.
-4. **References:** `ref_items` → document numbers in the text → `resolve_for` over that payer family.
+1. `try_return`: a returned direct debit re-opens the original collection → `RETURNED`.
+2. `try_reversal_or_advance` handles flows POLICIES names that had no stage before 2026-11-07:
+   - **receipt quoting a proforma** (`PROFORMA`, `PF..-....`) and **no invoice reference** → category `CUSTOMER_ADVANCE`;
+   - **returned supplier transfer**: an incoming "RETURN / DEVOLUCION / RETOUR / STORNO…" that quotes one of our
+     payment-run end-to-end ids → that run's documents, `RETURNED`, re-opened. The amounts must add up. Payment-factory
+     entities (ES00 → ES01/ES02/PT01) are allowed;
+   - **returned cheque / card chargeback** debit → the invoice behind a cheque number or card order **present in the batch
+     files**, `RETURNED`, re-opened.
+3. `try_advice`: a matching **remittance advice** (by ref, truncated ref + amount, or payer + amount + date).
+   `advice_rows` turns its lines into rows (§6). `_adv_doc` resolves each advice line in this order:
+   1. our document number;
+   2. a **short number** that is a suffix of the payer's own receivables;
+   3. the **customer PO**;
+   4. a short number plus the same gross amount anywhere in the entity.
+
+   Steps 2–4 cover the Sept-2025 layout drift (§9.5).
+4. **Confident no-item:** the model is ≥ 90 % sure (≥ 20 examples) → category.
+5. **References:** `ref_items` → document numbers in the text → `resolve_for` over that payer family.
    An already-paid quoted invoice of the same amount → `DUPLICATE_PAYMENT`.
-5. **Party:** `rank_parties` (IBAN first; then IDF-weighted name words, prefixes for truncated words, coverage ≥ 0.6;
-   ties broken by exact full name and word order; coverage is **rounded to 6 decimals**, so a full match of
-   0.9999999999 ties with 1.0 and the exact-name bonus decides) → `resolve_for` per party.
-6. `try_credit_refund`: credit-note refunds.
-7. `try_duplicate`: the amount equals an invoice already paid → `DUPLICATE_PAYMENT`.
-8. `no_item`: the model's category. A receipt from a **known payer** (full-name coverage and open receivables)
-   gets category `UNIDENTIFIED` with no exception. A receipt nobody can be tied to gets `UNIDENTIFIED / UNIDENTIFIED`.
+6. **Party:** `rank_parties`:
+   - IBAN first;
+   - then IDF-weighted name words (prefixes for truncated words), coverage ≥ 0.6;
+   - coverage **rounded to 6 decimals**, so a full match of 0.9999999999 ties with 1.0;
+   - ties broken by exact full name and word order.
+
+   Then `resolve_for` per party.
+7. `try_credit_refund`: credit-note refunds (APC refund in, ARC payout out).
+8. **Duplicate-payment refund**: a receipt with refund/duplicate wording, no invoice reference, from an identified
+   **supplier** → category `SUPPLIER_REFUND`.
+9. `try_duplicate`: the amount equals an invoice already paid → `DUPLICATE_PAYMENT`.
+10. `no_item`: the model's category. A receipt from a **known payer** gets category `UNIDENTIFIED` with no exception;
+    a receipt nobody can be tied to gets `UNIDENTIFIED / UNIDENTIFIED`.
 
 ### `resolve_for`: which open items a payment settles
 
-Candidates = `open_of(family)` (open items on the right side, issued ≤ booking + 3 days). It tries in order and stops at
-the first success:
+Candidates = `open_of(family)`: open items on the right side, issued ≤ booking + 3 days. It tries in order and stops at
+the first success.
 
-1. quoted items
-2. a subset of the quoted items
-3. quoted items + credit notes
-4. `_gap_fill`
-5. a forced single item
-6. `_settle_sub(all candidates)`
-7. `settle_fx` (3 % tolerance)
-8. `_explained_single` (one item with an allowed short)
-9. `_withholding_multi`
-10. `_overpaid_single` (round, 1 % or 10 % overpayment)
+**With quoted items:**
+1. the quoted items exactly
+2. a subset of them
+3. quoted + credit notes
+4. a subset of quoted + credit notes
+5. `_gap_fill` (quoted plus a subset of the payer's other open items for the gap)
+6. **`_one_partial`**: the quoted invoices are paid in full except ONE, paid by a round share of its total (`PARTIAL_FRACTIONS`); all items must be in the line's currency
+7. a forced single item, when only one invoice is quoted
+
+**Then, for all candidates:**
+1. `_settle_sub`
+2. `settle_fx` (3 % tolerance)
+3. `_explained_single` (one item with an allowed short)
+4. `_withholding_multi`
+5. `_overpaid_single` (round, 1 % or 10 % overpayment)
+6. **`_instalment`**: a part payment of ONE invoice → `PARTIAL` for the paid amount. With a `k/N` marker ("INSTALMENT 1/3", "PRESTACAO 2/6", "ECHEANCE 1/6") the cash must be total/N; without one, total × f for f in {1/2, 1/3, 1/4, 1/6, 1/12} ∪ `PARTIAL_FRACTIONS`, accepted only when exactly one open invoice matches.
+
+`PARTIAL_FRACTIONS = (0.25, 0.3, 0.4, 0.5, 0.6, 0.7)` is **the distribution of paid/total in TRAIN golden partials**. It was
+identical in 2025-03 and 2024-10, so it isn't fitted to LIVE.
 
 ### `subset()`: which items add up to the cash
 
@@ -293,7 +331,7 @@ Turns a chosen set into rows and exceptions (§6). Overpayments are capped at ma
 | exception | rule | row amount |
 |---|---|---|
 | *(none)* | paid = open (within tolerance) | open |
-| `PARTIAL` | paid < open, no allowed short reason, item stays open (includes a discount taken **after** its window) | **paid** |
+| `PARTIAL` | paid < open, no allowed short reason, item stays open: includes a discount taken **after** its window, **instalments** (total/N) and round-share part payments | **paid** |
 | `SHORT_DISCOUNT` | short = early-payment discount and booking ≤ issue + discount days + **3 grace days** | open |
 | `SHORT_BANK_CHARGES` | short ≤ €60 and ≤ 2 %, foreign payment | open |
 | `SHORT_WITHHOLDING` | customer in MX/BR/MA, short = 1.25 %, 1.5 % or 10 % | open |
@@ -301,8 +339,10 @@ Turns a chosen set into rows and exceptions (§6). Overpayments are capped at ma
 | `OVERPAYMENT` | paid > open, round / 1 % / 10 % signature | open |
 | `DUPLICATE_PAYMENT` | the invoice was already settled | paid |
 | `FX_DIFFERENCE` | invoice currency ≠ account currency, within 3 % after conversion; on **every** invoice row | open |
-| `RETURNED` | returned debit or cheque re-opens the item | returned amount |
+| `RETURNED` | returned direct debit, **returned supplier transfer**, **returned cheque**, **card chargeback**: re-opens the item | returned amount |
 | `UNIDENTIFIED` | receipt nobody can be tied to | no-item row |
+| category `CUSTOMER_ADVANCE` | receipt quoting a proforma, no invoice reference (no invoice exists yet) | no-item row |
+| category `SUPPLIER_REFUND` | a supplier returning our duplicate payment (no credit note) | no-item row |
 
 **Advice deductions** (`advice_rows`) are checked in this order:
 1. A deduction the policy explains (discount in its window, withholding rate, bank charges) is **that** exception, and the row amount is the open amount.
@@ -423,6 +463,8 @@ Every LIVE score is paired with the TRAIN-eval score of the same engine commit:
 | live_v8 | 90.55 | 87.90 | 2.65 |
 | live_v9 (drift fix) | 90.55 | 90.32 | **0.23** |
 | live_v10 | 90.77 | 90.69 | **0.08** |
+| live_v11 | 90.88 | 90.81 | **0.07** |
+| live_v12 | 91.16 | 91.11 | **0.05** |
 
 The gap was almost entirely the Sept-2025 advice-layout drift (a LIVE-only behaviour). After that fix, **the TRAIN
 evaluation predicts LIVE within about 0.2**. The harness prints `predicted LIVE ~ eval − median recent gap` for every
@@ -462,7 +504,40 @@ never sees answers; every report is saved to `autoresearch/analyst/` with its co
 The coding agent (Claude Code) runs the ReAct loop (§8.3). The personas are a second opinion that is cheap,
 reproducible and logged.
 
-#### The FINAL gate (layer 4, `scripts/final_gate.py`)
+### 8.5 LLM integration in detail (Claude API)
+
+| item | value |
+|---|---|
+| where | `scripts/analyst.py` only. The engine, scorer and gate never call an LLM (determinism, exact amounts, speed) |
+| model | `claude-opus-5-5` through the official `anthropic` Python SDK (2.5.0), adaptive thinking, `output_config.effort = "high"` |
+| safety | server-side refusal fallback (`server-side-fallback-2026-07-01`, `fallbacks: "default"`), with a plain request if that beta is refused; `stop_reason == "refusal"` handled |
+| key | `ANTHROPIC_API_KEY` from the environment or the git-ignored `.env` (synced from `claudeapi.txt`); never printed |
+| prompt | fixed framework context + the full `POLICIES.md` as a cached system block, plus the persona's role; the user turn carries the reports |
+| inputs | LIVE per-segment report, calibration table, autoresearch log, experiment diffs, gate output. **Never** answers for LIVE/FINAL (there are none) |
+| outputs | markdown notes in `autoresearch/analyst/<timestamp>_<mode>.md` with token usage and cost |
+| cost | $0.10–0.25 per call (Opus 5.5: $4 / $20 per 1M tokens). The budget is $100 |
+| results so far | **skeptic** found a currency-mixing bug and a combinatorial runtime trap in `_one_partial`, and the misfire risks of the first proforma/refund/return rules (fixed in `f62fe80`). **analyst** ranked the unimplemented flows that became the +0.28 experiment |
+| earlier work | the closeops prototype has a separate agent layer (`src/closeops/agents/`, Gemini default, Claude optional). It isn't used by bankrec |
+
+### 8.6 Submission pipeline in detail
+
+The organisers publish a 4-step API, and `scripts/submit.py` implements it with guards:
+
+| step | call | guard |
+|---|---|---|
+| 0 | local official validation of the file against the phase's bank lines | must be `"ok": true`, or nothing is sent |
+| 0 | platform history `GET /api/submissions` | LIVE: ≥ 180 s since our last upload, < 20 today. FINAL: refuses if a FINAL is already scored and needs `--i-confirm-final-is-one-shot` |
+| 1 | `POST /api/submissions/upload-url {phase, filename}` | 201 expected; returns `sub_id` and a presigned S3 form |
+| 2 | `POST <S3 url>` with the form fields, then the file | 200/201/204 |
+| 3 | `POST /api/submissions/{sub_id}/score` | |
+| 4 | `GET /api/submissions/{sub_id}` every **5 s** (the venue shares one IP), max 10 min | ends on scored / received / invalid / error |
+
+- The result JSON (score, metrics, 60+ segment accuracies) is saved in `submissions/results/`, and a line goes to `bankrec_scoreboard.md`.
+- The token is `HK_TOKEN`, from the environment or the git-ignored `.env`. It is never printed, logged or committed.
+- `scripts/pipeline.py --tag vN --submit` chains: refuse uncommitted engine changes → `bankrec run --phase live` → `submit.py` → `live_report.py`.
+- The browser crash ("insertBefore… not a child") is a client-side problem caused by browser translation or extensions. The API pipeline avoids it.
+
+### 8.7 The FINAL gate (layer 4, `scripts/final_gate.py`)
 
 It builds a label-free profile:
 - share of lines allocated, UNIDENTIFIED rates, amount coverage and rows per line, overall, per side and **per entity**;
@@ -476,7 +551,7 @@ It compares that profile with the best scored LIVE file. Verdicts:
 Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated share and amount coverage correlate
 0.95 with the platform score. They catch **breakage** reliably, not subtle errors; layers 1–3 measure those.
 
-#### FINAL-specific safeguards built in
+### 8.8 FINAL-specific safeguards built in
 
 - FINAL merges the previous masters into `masters_final`, so old names and IBANs survive renames and bank changes
   (`data._merge_previous_masters`, unit-tested).
@@ -488,15 +563,17 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 
 ## 9. Current status, results and known gaps
 
-### 9.1 Status (2026-11-07 11:50)
+### 9.1 Status (2026-11-07 14:05)
 
 | item | state |
 |---|---|
-| best engine | `main` = `43b9049` (= experiment `8469efa` + log). **TRAIN-month mean 90.55** (2025-03: 91.46, 2024-10: 89.64) |
-| LIVE leaderboard | CuentaMinds **90.32** (live_v9), 5th at 12:35: Stressed Vibing 92.38 · Saturn Returns 91.92 · Equipo 9 91.17 · Exponential 90.69 |
-| LIVE v9 breakdown | pair F1 92.2 % (P 97.6, R 87.4) · line accuracy 91.3 % · exception macro-F1 84.2 % (results in `submissions/results/`) |
-| next upload | `live_v9` = 90.55 engine + Sept-2025 advice-layout drift fix (§9.5) |
-| repo | pushed to GitHub (private) |
+| best engine | `main` = `9c3f786` + docs (tag `baseline-2026-11-07`). **TRAIN-month mean 91.225** (2025-03: 92.12, 2024-10: 90.33); hold-out 2025-05: 90.57 (at d08959f) |
+| LIVE leaderboard | CuentaMinds **91.11** (live_v12). At 13:26: Overfitters 95.58 · Stressed Vibing 92.38 · Exponential 92.01 · Saturn Returns 91.92 · Equipo 9 91.17 |
+| LIVE v12 breakdown | see `submissions/results/live_v12*.json`; v11: pair F1 ≈ 92.4 % (P 97.7, R 87.7) · line accuracy 92.3 % · exception macro-F1 84.6 % |
+| uploads today | 11 / 20 (all through `pipeline.py --submit` since v9) |
+| calibration | TRAIN eval − LIVE gap: 0.05–0.08 since the drift fix (`bankrec_calibration.tsv`) |
+| Claude API | working (`claude-opus-5-5`); about $0.6 spent on analyst/skeptic/review calls |
+| repo | pushed to GitHub (private), tag `baseline-2026-11-07` |
 
 ### 9.2 Score history
 
@@ -514,6 +591,11 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | exp 6 | | 91.43 | 89.60 | | party-name coverage rounding (float tie bug) |
 | **exp 7** | | **91.46** | **89.64** | **87.90** (live_v8) | within a day, referenced lines first |
 | drift fix | | 91.46 | 89.64 | **90.32** (live_v9) | advice short invoice numbers / PO (LIVE-only layout, neutral on TRAIN): **+2.42 on LIVE** |
+| e935293 | | 91.67 | 89.87 | **90.69** (live_v10) | instalments (k/N) + round-share partials |
+| d08959f | | 91.80 | 89.96 | **90.81** (live_v11) | one partial among quoted invoices; hold-out 2025-05 = 90.57 |
+| 3d67c36 | | 92.09 | 90.23 | **91.11** (live_v12) | proforma advances, returned transfers, cheque returns, chargebacks, duplicate refunds |
+| f62fe80 | | 92.04 | 90.24 | | skeptic-tightened flows (robustness, −0.02 within noise) |
+| **9c3f786** | | **92.12** | **90.33** | next: live_v13 | cheque/lockbox stubs with short numbers (same resolver as advices) |
 
 ### 9.3 Autoresearch log (2026-11-07)
 
@@ -531,20 +613,27 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | 8469efa | +0.035 | **keep** | same-day ordering: referenced lines first |
 | 176dadf | +0.010 | discard | lookalike payers by legal form (also caught the word "Spa") |
 | c852e32 → c3731f3 | +0.000 | **kept as drift fix** | advice short invoice numbers / PO lookup. LIVE advice lines resolved 88.3 % → 97.9 % |
+| 5659c2b | +0.195 | **keep** | instalments: cash = total/N of one open invoice → PARTIAL |
+| e935293 | +0.025 | **keep** | partials: cash = 25–70 % of one open invoice total |
+| 91de62d | crash | timeout | one partial among candidates incl. unquoted (combinatorial, > 12 min/month) |
+| d08959f | +0.110 | **keep** | one partial among the quoted invoices only |
+| aec2b82 → 74d38ac | 0.000 | **kept (simpler)** | skeptic fixes: same-currency guard, combinatorial branch removed |
+| 427f6d5 | +0.015 | discard | credit-note residual after quoted invoices (analyst #1). Most credit-note payments quote no refs |
+| 3d67c36 | +0.280 | **keep** | unimplemented flows: advances, returned transfers, cheque returns, chargebacks, duplicate refunds (analyst #4) |
+| 2d4ff40 → f62fe80 | −0.020 | **kept (robustness)** | skeptic-tightened flows: fewer misfire paths on unseen data |
+| 9c3f786 | +0.085 | **keep** | cheque/lockbox stubs: short-number resolver |
 | (earlier) | −0.50 | rejected | exact bitset subset-sum fallback for known payers: too many spurious exact sets |
 
-### 9.4 Known gaps (TRAIN 2025-03, best engine), biggest first
+### 9.4 Known gaps (LIVE v11 per-segment report, lines lost)
 
-| gap | size | notes / ideas |
-|---|---|---|
-| `ar_ref_noise` | 3.3k missed pairs | truncated names/refs. Remaining failures are mostly "known payer, unmatched" |
-| `ar_1toN_credit_note` | 2.3k | 95 % of credit notes are paid with the invoice their `related_document` names; units help only for small sets so far |
-| `ar_short_dispute` | 2.1k | payers with up to 900 open items paying 60 invoices with 4 disputes (3/5/30 %): out of reach today |
-| `ar_n_to_m`, `ar_1toN_text` | 0.8k each | many-invoice payments with partial refs |
-| `ap_confirming` | 0.7k | maturity rule leaves some debits (N ≠ count at the date) |
-| UNIDENTIFIED F1 0.69 | 300 lines | lookalike payers counted as known (category right, exception missing) |
-| PARTIAL recall 0.70 | | partial payments not recognised |
-| DUPLICATE_PAYMENT P 0.40–0.67 | | a wrong earlier allocation (often a DD batch) closes the invoice first |
+| segment | LIVE | TRAIN | lines lost | notes / ideas |
+|---|---|---|---|---|
+| `ar_ref_noise` | 92.2 % | 92.5 % | ~3.3k | known payers left unmatched; the paid invoices are *scattered* in the payer's open book (only 46 of ~700 TRAIN cases were contiguous), so no window rule works |
+| `ar_1toN_credit_note` | 59.6 % | 60 % | ~1.3k | most payments quote no refs; units and residual ideas gave ≤ +0.015 |
+| `ar_n_to_m` | 33.6 % | 61 % | ~1.2k | improved from 19.8 % (v9) → 33.6 % (v11); still a LIVE gap |
+| `ar_cheque_deposit` | 63 % | 65 % | ~0.7k | short stub numbers fixed in 9c3f786 (not yet on LIVE) |
+| `ar_1toN_text`, `ar_discount_late`, `ar_retention` | 89 / 33 / 48 % | | ~0.5–0.7k each | retention and advance-deduction rules live in PDFs (not parsed yet) |
+| `ar_dispute_settlement` | 88.6 % | 99.7 % | ~150 | LIVE-only gap: likely advice drift downstream |
 
 ### 9.5 LIVE vs TRAIN: drift found on 2026-11-07
 
@@ -582,7 +671,7 @@ Times are **Madrid**. The server deadlines are: FINAL data at **18:00**, submiss
 
 | time | action |
 |---|---|
-| now → 15:30 | autoresearch loop. After each kept batch: fast-forward `main`, run LIVE, upload (≥ 3 min apart, ≤ 20/day) |
+| now → 15:30 | autoresearch loop (analyst → experiment → skeptic → guard → promote). After each kept batch: fast-forward `main`, `pipeline.py --tag vN --submit`, add a calibration row |
 | **15:30** | **code freeze.** `git checkout main && git tag final-engine && git push --tags` |
 | 15:30–17:30 | video, write-up, presentation (§12) |
 | 17:30 | **stop all experiments** (they slow FINAL). Clean `git status` on `main`. Laptop on power |
@@ -595,6 +684,10 @@ Times are **Madrid**. The server deadlines are: FINAL data at **18:00**, submiss
 ## 11. FINAL runbook (18:00 → 19:30)
 
 > Goal: one **valid** file uploaded by **~18:45**. Run on `main` at the `final-engine` tag, with nothing else running.
+>
+> **One command does steps 1–6:** `.venv/Scripts/python scripts/final_run.py --download`. It downloads and checks the
+> SHA-256 against the site's public `config.json`, extracts, sanity-checks, runs, gates, and gets the Claude
+> release-manager review. It stops before uploading. The manual steps below are the same procedure, for when anything needs a hand.
 
 1. **Download and verify:** download FINAL from **Datos** (Data) into `data/`, then `sha256sum data/bankrec-final.tar.gz` must equal the hash on the page.
 2. **Extract:** `mkdir -p data/valtermia/final && tar -xzf data/bankrec-final.tar.gz -C data/valtermia/final`.
@@ -757,3 +850,9 @@ Discarded experiments are recorded only in §9.3 (one line), so nobody tries the
 | 11-07 12:35 | f8b4a36 | **LIVE v9 = 90.32** (+2.42, drift fix confirmed), first upload through `pipeline.py --submit` |
 | 11-07 13:05 | d08959f | instalments, partial shares, one partial among quoted invoices (eval 90.88); **LIVE v10 = 90.69** |
 | 11-07 13:20 | a4c5b00 | evaluation strategy (§8.4): calibration, Claude analyst personas, overfit guard, FINAL orchestrator, FINAL masters merge |
+| 11-07 13:30 | 88e7274 | **LIVE v11 = 90.81** (pred 90.65); hold-out 2025-05 = 90.57 |
+| 11-07 13:40 | 3d67c36 | unimplemented flows (+0.28): proforma advances, returned transfers, cheque returns, chargebacks, duplicate refunds |
+| 11-07 13:46 | f62fe80 | skeptic-tightened flows (robustness) |
+| 11-07 13:58 | 9c3f786 | cheque/lockbox short stub numbers (+0.085) |
+| 11-07 14:01 | – | **LIVE v12 = 91.11** (pred 91.08) |
+| 11-07 14:05 | – | README.md; guide brought fully up to date (§3, §4, §5, §6, §8.5 LLM integration, §8.6 submission pipeline, §9, §11); baseline tag `baseline-2026-11-07` |
