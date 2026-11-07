@@ -70,6 +70,9 @@ class Engine:
         self.acct_entity = dict(zip(data.bank_accounts.account_id, data.bank_accounts.entity))
         self.acct_ccy = dict(zip(data.bank_accounts.account_id, data.bank_accounts.currency))
         self.result: dict[str, list[Row]] = {}
+        self._payer_ar_cache: dict[tuple[str, str], list[int]] = {}
+        self._ar_po: dict | None = None
+        self._ar_suffix: dict = {}
         self.how: dict[str, str] = {}
         self._terms = {r.code: (r.early_payment_discount_pct or 0, r.discount_days or 0)
                        for r in data.payment_terms.itertuples()}
@@ -175,7 +178,8 @@ class Engine:
                     self.adv_by_amt[round(v * 100)].append(i)
 
     def _adv_doc(self, a: dict, ln: dict) -> int | None:
-        """Item of an advice line: our document number in any of the line's tokens (prefix optional)."""
+        """Item of an advice line: our document number in any of the line's tokens (prefix optional); else a short
+        number that ends one of the payer's own receivables (layouts that print '430845' for 1072430845)."""
         best = None
         for tok in ln["tokens"]:
             for k in self.docidx.lookup(norm(tok)):
@@ -184,7 +188,46 @@ class Engine:
                 if self.entity[k] == a["entity"]:
                     return k
                 best = best if best is not None else k
-        return best
+        if best is not None:
+            return best
+        for tok in ln["tokens"]:
+            if tok.isdigit() and 5 <= len(tok) <= 8:
+                hits = [k for k in self._payer_ar(a) if self.doc_digits[k].endswith(tok) and len(self.doc_digits[k]) > len(tok)]
+                if len(hits) == 1:
+                    return hits[0]
+        if self._ar_po is None:   # lazy indexes for advice layouts without our document number
+            self._ar_po, self._ar_suffix = defaultdict(list), defaultdict(list)
+            for k, kd in enumerate(self.kind):
+                if kd[:2] == "AR":
+                    if self.po[k]:
+                        self._ar_po[(self.entity[k], norm(self.po[k]))].append(k)
+                    if len(self.doc_digits[k]) >= 6:
+                        self._ar_suffix[(self.entity[k], self.doc_digits[k][-5:])].append(k)
+        gross = abs(ln["nums"][0]) if ln["nums"] else None
+        for tok in ln["tokens"]:                       # the customer's PO number
+            hits = self._ar_po.get((a["entity"], norm(tok)), [])
+            if len(hits) > 1 and gross is not None:
+                hits = [k for k in hits if abs(self.total[k] - gross) <= 0.01]
+            if len(hits) == 1:
+                return hits[0]
+        for tok in ln["tokens"]:                       # short number + same gross amount, anywhere in the entity
+            if tok.isdigit() and 5 <= len(tok) <= 8 and gross is not None:
+                hits = [k for k in self._ar_suffix.get((a["entity"], tok[-5:]), ())
+                        if self.doc_digits[k].endswith(tok) and abs(self.total[k] - gross) <= 0.01]
+                if len(hits) == 1:
+                    return hits[0]
+        return None
+
+    def _payer_ar(self, a: dict) -> list[int]:
+        """Receivables of the advice's payer (and its family), cached per payer."""
+        key = (a["entity"], a["payer"])
+        if key not in self._payer_ar_cache:
+            parties = self.identify_party({"entity": a["entity"], "counterparty_name": a["payer"]}, fold(a["payer"]))
+            fam = set(parties)
+            for p in parties:
+                fam.update(self.parent_children.get(p, ()))
+            self._payer_ar_cache[key] = [k for p in fam for k in self.by_party.get(p, ()) if self.kind[k][:2] == "AR"]
+        return self._payer_ar_cache[key]
 
     def find_advice(self, txn: dict, blob: str) -> int | None:
         amt = round(float(txn["amount"]) * 100)
