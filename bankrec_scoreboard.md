@@ -53,3 +53,5 @@
 | 2026-11-07 14:01 | live UPLOAD | submissions/live_v12.csv.gz | 91.11 (platform) | 3d67c36 advances/returns/chargebacks/dup refunds (eval 91.16) |
 | 2026-11-07 14:25 | live | submissions\live_v13.csv.gz | valid (no golden: upload to score) | LIVE v13 = 5925988 skeptic-tightened flows + cheque short stubs (eval 91.225) |
 | 2026-11-07 14:25 | live UPLOAD | submissions/live_v13.csv.gz | 91.16 (platform) | 5925988 skeptic-tightened flows + cheque short stubs (eval 91.225) |
+| 2026-11-07 15:32 | live | submissions\live_v14.csv.gz | valid (no golden: upload to score) | LIVE v14 = 9f72a96 PDF facts (eval 91.555) |
+| 2026-11-07 15:32 | live UPLOAD | submissions/live_v14.csv.gz | 91.47 (platform) | 9f72a96 PDF facts (eval 91.555) |

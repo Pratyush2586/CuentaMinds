@@ -6,3 +6,4 @@ e935293	90.770	91.67	89.87	live_v10.csv.gz	90.69	instalments + partial shares
 d08959f	90.880	91.80	89.96	live_v11.csv.gz	90.81	one partial among quoted invoices; hold-out 2025-05 = 90.57
 3d67c36	91.160	92.09	90.23	live_v12.csv.gz	91.11	unimplemented flows (advances, returns, chargebacks, dup refunds)
 9c3f786	91.225	92.12	90.33	live_v13.csv.gz	91.16	skeptic-tightened flows + cheque short stubs
+9f72a96	91.555	92.38	90.73	live_v14.csv.gz	91.47	PDF facts
