@@ -1116,7 +1116,10 @@ class Engine:
                 # a known payer whose amount we could not explain: most likely a missed match, not an
                 # unidentified receipt; keep the UNIDENTIFIED exception for receipts nobody can be tied to
                 # (tried: an exact bitset subset-sum over its open items here -> too many spurious sets, 86.06 -> 85.56)
-                self.emit(t, [Row(None, None, "UNIDENTIFIED", "")], "unmatched_known_payer")
+                # ...unless the line looks like an unidentified receipt anyway: a round sum on account, or no document
+                # number quoted at all (TRAIN: these are mostly truly unidentified; +0.3 on both dev months)
+                exc = "UNIDENTIFIED" if abs(amount) % 50 == 0 or not _quotes_number(txn) else ""
+                self.emit(t, [Row(None, None, "UNIDENTIFIED", exc)], "unmatched_known_payer")
             else:
                 self.emit(t, [Row(None, None, "UNIDENTIFIED", "UNIDENTIFIED")], "unidentified")
         else:
@@ -1357,6 +1360,15 @@ _RETURN_RE = re.compile(r"\bRETURN|DEVOLUCI|\bRETOUR|RUECKUEBERWEISUNG|RUCKUBERW
 _CHEQUE_RETURN_RE = re.compile(r"(?:RETURNED ITEM|IMPAYE|DEVUELTO|UNPAID|SIN FONDOS|INSOLUTO|NICHT EINGELOEST).{0,40}?(?:CHK|CHQ|CHEQUE|CHEQUE)|(?:CHK|CHQ|CHEQUE).{0,40}?(?:RETURNED|IMPAYE|DEVUELTO|UNPAID|SIN FONDOS)")
 _CHARGEBACK_RE = re.compile(r"CHARGEBACK|CONTRACARGO|RUECKBELASTUNG|RETROCESION|RIADDEBITO")
 _DUP_REFUND_RE = re.compile(r"DUPLICAD|DUPLICATE|DOPPELZAHLUNG|DOUBLON|REEMBOLSO|REFUND|REMBOURSEMENT|ERSTATTUNG|RIMBORSO")
+_BANK_IDS = re.compile(r"PAYMENT ID:\s*\d+|\b[A-Z]{4}\d{10,}")
+
+
+def _quotes_number(txn: dict) -> bool:
+    """Does the payer quote any document-like number (5+ digits), ignoring the bank's own payment/trace ids?"""
+    blob = " ".join(str(txn.get(k) or "") for k in ("text", "remittance_info", "ref2", "end_to_end_id"))
+    return bool(re.search(r"\d{5,}", _BANK_IDS.sub("", blob)))
+
+
 _RUN_REF = re.compile(r"\b[A-Z]{2}\d{10,14}(?:-\d{2,5})?\b")
 
 
