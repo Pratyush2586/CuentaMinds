@@ -33,7 +33,7 @@ TIMEOUT_S = 12 * 60          # a month must match well within this, or LIVE/FINA
 OUT = ROOT / "autoresearch"
 TSV = OUT / "results.tsv"
 COLS = ["commit", "score_mean", *[f"score_{m}" for m in DEV_MONTHS], "match_s", "status", "description"]
-EDITABLE = ["src/bankrec/engine.py", "src/bankrec/text.py", "src/bankrec/advices.py"]
+EDITABLE = ["src/bankrec/engine.py", "src/bankrec/text.py", "src/bankrec/advices.py", "src/bankrec/pdfdocs.py"]
 PY = str(ROOT / ".venv" / "Scripts" / "python.exe") if os.name == "nt" else str(ROOT / ".venv" / "bin" / "python")
 
 

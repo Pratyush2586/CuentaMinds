@@ -81,9 +81,18 @@ def cmd_run(a) -> int:
                                min_received=(start - pd.DateOffset(days=35)).strftime("%Y-%m-%d"))
     model = NonItemModel.load(mp) if mp.exists() else None
     # facts only the PDFs state (instalments, retentions, advances, cancel-and-replace, paid-out credit notes)
-    pdf_dirs = [data.phase_dir] if a.month else [data.phase_dir] + [
-        D.find_phase_dir(root, p) for p in {"sample": [], "train": [], "live": ["train"], "final": ["live", "train"]}[a.phase]]
-    data.pdf_facts = load_pdf_facts(pdf_dirs, root / "cache")
+    try:   # a PDF problem must never stop a run: fall back to no PDF facts
+        pdf_dirs = [data.phase_dir]
+        if not a.month:
+            for p in {"live": ["train"], "final": ["live", "train"]}.get(a.phase, []):
+                try:
+                    pdf_dirs.append(D.find_phase_dir(root, p))
+                except FileNotFoundError:
+                    pass
+        data.pdf_facts = load_pdf_facts(pdf_dirs, root / "cache")
+    except Exception as exc:  # noqa: BLE001
+        print(f"WARNING: PDF facts unavailable ({type(exc).__name__}: {exc}); continuing without them")
+        data.pdf_facts = {}
     t1 = time.time()
     eng = Engine(data, model, advices)
     eng.run()

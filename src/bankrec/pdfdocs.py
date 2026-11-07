@@ -77,26 +77,30 @@ def parse_text(txt: str) -> dict:
     return out
 
 
-def _one(args: tuple[str, dict]) -> dict | None:
+FAILED = "failed"
+PARSER_VERSION = "1"   # bump whenever the regexes change: the cache key includes it
+
+
+def _one(args: tuple[str, dict]) -> dict | str | None:
     path, meta = args
     try:
         import pdfplumber
         with pdfplumber.open(path) as pdf:
             txt = "\n".join(p.extract_text() or "" for p in pdf.pages)
     except Exception:
-        return None
+        return FAILED
     facts = parse_text(txt)
     return {**meta, **facts} if facts else None
 
 
-def load_pdf_facts(dirs: list[Path], cache_dir: Path, workers: int = 12) -> dict[tuple[str, str], dict]:
-    """(entity, normalised document number) -> facts, for AR invoices and AR credit notes of the given phase dirs."""
-    out: dict[tuple[str, str], dict] = {}
+def load_pdf_facts(dirs: list[Path], cache_dir: Path, workers: int = 12) -> dict[tuple[str, str, str], dict]:
+    """(document type, entity, normalised document number) -> facts, for AR invoices and credit notes of the dirs."""
+    out: dict[tuple[str, str, str], dict] = {}
     for d in dirs:
         idx = d / "pdfs" / "index.csv"
         if not idx.exists():
             continue
-        cache = cache_dir / f"pdffacts_{d.parent.name}_{d.name}.json"
+        cache = cache_dir / f"pdffacts_{d.parent.name}_{d.name}_v{PARSER_VERSION}.json"
         if cache.exists():
             facts = json.loads(cache.read_text(encoding="utf-8"))
         else:
@@ -105,9 +109,13 @@ def load_pdf_facts(dirs: list[Path], cache_dir: Path, workers: int = 12) -> dict
             jobs = [(str(d / "pdfs" / r["file"]), {"entity": r["entity"], "doc": norm(r["document_number"]),
                                                    "type": r["document_type"], "party": r["party_id"]}) for r in rows]
             with ProcessPoolExecutor(max_workers=workers) as ex:
-                facts = [f for f in ex.map(_one, jobs, chunksize=50) if f]
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            cache.write_text(json.dumps(facts), encoding="utf-8")
+                res = list(ex.map(_one, jobs, chunksize=50))
+            facts = [f for f in res if isinstance(f, dict)]
+            failed = sum(1 for f in res if f == FAILED)
+            print(f"pdf facts {d.name}: {len(jobs)} PDFs, {len(facts)} with facts, {failed} unreadable", flush=True)
+            if failed <= 0.05 * max(1, len(jobs)):      # never cache a broken parse (e.g. pdfplumber missing)
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                cache.write_text(json.dumps(facts), encoding="utf-8")
         for f in facts:
-            out[(f["entity"], f["doc"])] = f
+            out[(f["type"], f["entity"], f["doc"])] = f
     return out

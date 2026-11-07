@@ -122,25 +122,34 @@ class Engine:
         self.replaced_by: dict[int, int] = {}
         if not facts:
             return
-        ar = {(self.entity[k], self.doc_norm[k]): k for k in range(n) if self.kind[k][:2] == "AR" and self.doc_norm[k]}
-        for (ent, doc), f in facts.items():
-            k = ar.get((ent, doc))
+        kind_of = {"invoice": "ARI", "credit_note": "ARC"}
+        ar = {(self.kind[k], self.entity[k], self.doc_norm[k]): k for k in range(n)
+              if self.kind[k] in ("ARI", "ARC") and self.doc_norm[k]}
+        for (typ, ent, doc), f in facts.items():
+            k = ar.get((kind_of.get(typ, "ARI"), ent, doc))
             if k is None:
                 continue
-            alt = [v for v in [f.get("payable"), *f.get("instalments", [])] if v]
-            if f.get("advance"):
-                alt.append(round(self.total[k] - f["advance"], 2))
+            tot, alt = self.total[k], []
+            inst = f.get("instalments", [])          # sanity: the plan must add up to the invoice total
+            if inst and abs(sum(inst) * round(tot / max(inst)) / len(inst) - tot) <= 0.02 * tot:
+                alt += inst
+            pay = f.get("payable")                    # retention 5-10 % (POLICIES §5.8): payable 85-97 % of the total
+            if pay and 0.85 * tot <= pay <= 0.97 * tot:
+                alt.append(pay)
+            adv = f.get("advance")
+            if adv and 0 < adv < tot:
+                alt.append(round(tot - adv, 2))
             if alt:
                 self.pdf_alt[k] = alt
             if f.get("paid_out") and self.is_credit(k):
                 self.paid_out[k] = True
             if f.get("cancels") and self.is_credit(k):
                 self.never[k] = True
-                j = ar.get((ent, f["cancels"]))
+                j = ar.get(("ARI", ent, f["cancels"]))
                 if j is not None:
                     self.never[j] = True
-            if f.get("replaces"):
-                j = ar.get((ent, f["replaces"]))
+            if f.get("replaces") and not self.is_credit(k):
+                j = ar.get(("ARI", ent, f["replaces"]))
                 if j is not None:
                     self.never[j] = True
                     self.replaced_by[j] = k
