@@ -424,6 +424,12 @@ class Engine:
         if abs(diff) <= tol:
             return rows()
         if len(inv) != 1 and not force_single:
+            hit = [k for k in inv if diff > 0 and abs(self.open[k] - self.total[k]) <= CENT
+                   and abs(diff - self.disc_amount(k)) <= 0.02]
+            if len(hit) == 1 and not fx:   # one invoice paid net of its early-payment discount (in or after the window)
+                k = hit[0]
+                exc = "SHORT_DISCOUNT" if _days(txn["booking_date"], self.issue[k]) <= (self._terms.get(self.terms[k], (0, 0))[1] or 0) + 3                     else "PARTIAL"
+                return rows({k: (round(self.open[k] - diff, 2), "PARTIAL")}) if exc == "PARTIAL"                     else rows({k: (round(self.open[k], 2), "SHORT_DISCOUNT")})
             return None
         k = inv[0]
         if diff < 0:  # paid more than owed: only a modest excess is an overpayment, not a missed invoice
@@ -436,6 +442,13 @@ class Engine:
             paid = round(self.open[k] - diff, 2)
             return rows({k: (paid, "PARTIAL")}) if paid > 0 else None
         return rows({k: (round(self.open[k], 2), "FX_DIFFERENCE" if fx else exc)})
+
+    def disc_amount(self, k: int) -> float:
+        """The early-payment discount of invoice k under its payment terms (0 if the terms have none)."""
+        pct = self._terms.get(self.terms[k], (0, 0))[0]
+        if not pct or pct != pct or self.is_credit(k):    # no discount in the terms (or NaN)
+            return 0.0
+        return round(self.total[k] * pct / 100, 2)
 
     def short_reason(self, txn: dict, k: int, diff: float, paid_for_k: float, fx: bool) -> str:
         total = self.total[k]
@@ -617,6 +630,10 @@ class Engine:
                     if named:
                         return [named[0]]
             return [singles[0]]
+        net = [k for k, v in zip(ks, vals) if v > 0 and abs(self.open[k] - self.total[k]) <= CENT
+               and self.disc_amount(k) and abs(v - round(self.disc_amount(k) * 100) - target) <= 1]
+        if len(net) == 1:                        # one invoice paid net of its early-payment discount
+            return net
         alt = [k for k in ks if k in self.pdf_alt and self.open[k] * 100 > target + 1
                and any(round(a * 100) == target for a in self.pdf_alt[k])]
         if len(alt) == 1:                        # the PDF states this exact part payment (instalment / retention / advance)
@@ -689,18 +706,28 @@ class Engine:
             for i in by_due:
                 pre.append(pre[-1] + vals[i])
             where: dict[int, list[int]] = defaultdict(list)
+            disc_at: dict[int, list[int]] = defaultdict(list)
             for j, i in enumerate(by_due):
                 where[vals[i]].append(j)
+                dc = round(self.disc_amount(ks[i]) * 100)
+                if dc and abs(self.open[ks[i]] - self.total[ks[i]]) <= CENT:
+                    disc_at[dc].append(j)
             for a in range(n):
-                for b in range(a + 4, min(n, a + 60) + 1):       # window by_due[a:b], at least 3 items kept
+                for b in range(a + 2, min(n, a + 60) + 1):       # window by_due[a:b]
                     ex = pre[b] - pre[a] - target
                     if ex == 0:
                         continue
                     for h in where.get(ex, ()):
-                        if a < h < b - 1:                        # an interior hole: both window ends are paid
+                        if a < h < b - 1 and b - a >= 4:         # an interior hole, both window ends paid, 3+ kept
                             idx = [by_due[x] for x in range(a, b) if x != h]
                             sols.append((max(dist[x] for x in idx), idx))
                             break
+                    else:
+                        if ex in disc_at:                        # or one invoice of the window paid net of discount
+                            hs = [h for h in disc_at[ex] if a <= h < b]
+                            if len(hs) == 1:
+                                idx = [by_due[x] for x in range(a, b)]
+                                sols.append((max(dist[x] for x in idx) + 0.5, idx))
                 if len(sols) > 50:
                     break
         if not sols and n <= 400:                      # pairs
