@@ -791,7 +791,8 @@ class Engine:
         golden). With a k/N marker only total/N counts; otherwise exactly one matching open invoice is required."""
         cash = abs(float(txn["amount"]))
         m = _INSTALMENT_RE.search(blob)
-        shares = [1 / int(m.group(2))] if m and 1 < int(m.group(2)) <= 36 else             sorted({1 / n for n in (2, 3, 4, 6, 12)} | set(PARTIAL_FRACTIONS))
+        plan = sorted({1 / n for n in (2, 3, 4, 6, 12)} | set(PARTIAL_FRACTIONS))
+        shares = [1 / int(m.group(2))] if m and 1 < int(m.group(2)) <= 36 else plan
         hits = []
         for k in cands:
             if self.is_credit(k) or self.ccy[k] != txn["currency"] or self.open[k] <= cash + CENT:
