@@ -730,6 +730,25 @@ class Engine:
                                 sols.append((max(dist[x] for x in idx) + 0.5, idx))
                 if len(sols) > 50:
                     break
+            if not sols and n <= 120:   # two invoices left out of a short window (both interior, 3+ kept)
+                for a in range(n):
+                    for b in range(a + 5, min(n, a + 30) + 1):
+                        ex = pre[b] - pre[a] - target
+                        if ex <= 0:
+                            continue
+                        found = None
+                        for h1 in range(a + 1, b - 1):
+                            for h2 in where.get(ex - vals[by_due[h1]], ()):
+                                if h1 < h2 < b - 1:
+                                    found = (h1, h2)
+                                    break
+                            if found:
+                                break
+                        if found:
+                            idx = [by_due[x] for x in range(a, b) if x not in found]
+                            sols.append((max(dist[x] for x in idx) + 1.0, idx))
+                    if len(sols) > 50:
+                        break
         if not sols and n <= 400:                      # pairs
             pos: dict[int, list[int]] = defaultdict(list)
             for i, v in enumerate(vals):
