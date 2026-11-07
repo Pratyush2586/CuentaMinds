@@ -80,6 +80,17 @@ def diagnostics(r: dict) -> str:
     return "\n".join(lines)
 
 
+def live_gap(last: int = 2) -> float | None:
+    """Median (eval_mean - live_score) of the most recent calibration points (after the last known drift fix)."""
+    f = ROOT / "bankrec_calibration.tsv"
+    if not f.exists():
+        return None
+    with open(f, encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh, delimiter="	"))[-last:]
+    gaps = sorted(float(r["eval_mean"]) - float(r["live_score"]) for r in rows)
+    return gaps[len(gaps) // 2] if gaps else None
+
+
 def read_tsv() -> list[dict]:
     if not TSV.exists():
         return []
@@ -137,6 +148,11 @@ def cmd_eval(desc: str, baseline: bool = False) -> int:
         print(f"vs best {best['commit']} ({best['score_mean']}): gain {gain:+.3f}, worst month drop {max(drops):+.2f}"
               f" -> {row['status'].upper()}")
     append(row)
+    if row["status"] in ("keep", "discard"):
+        gap = live_gap()
+        if gap is not None:
+            print(f"predicted LIVE ~ {float(row['score_mean']) - gap:.2f} (eval - median gap {gap:+.2f} of the last "
+                  f"calibration points in bankrec_calibration.tsv)")
     print("--- observation (dev month 1) ---")
     print(diagnostics(res[0]))
     if row["status"] in ("discard", "crash") and not baseline:
