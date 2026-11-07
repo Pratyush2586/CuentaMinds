@@ -21,6 +21,7 @@ from bankrec import data as D
 from bankrec.advices import load_advices
 from bankrec.engine import Engine
 from bankrec.nonitem import NonItemModel
+from bankrec.pdfdocs import load_pdf_facts
 from bankrec.submission import score, write
 
 DEFAULT_DATA = "data/valtermia"
@@ -79,6 +80,10 @@ def cmd_run(a) -> int:
         advices = load_advices([data.phase_dir] + [D.find_phase_dir(root, p) for p in earlier], root / "cache",
                                min_received=(start - pd.DateOffset(days=35)).strftime("%Y-%m-%d"))
     model = NonItemModel.load(mp) if mp.exists() else None
+    # facts only the PDFs state (instalments, retentions, advances, cancel-and-replace, paid-out credit notes)
+    pdf_dirs = [data.phase_dir] if a.month else [data.phase_dir] + [
+        D.find_phase_dir(root, p) for p in {"sample": [], "train": [], "live": ["train"], "final": ["live", "train"]}[a.phase]]
+    data.pdf_facts = load_pdf_facts(pdf_dirs, root / "cache")
     t1 = time.time()
     eng = Engine(data, model, advices)
     eng.run()

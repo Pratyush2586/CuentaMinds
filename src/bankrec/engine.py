@@ -65,6 +65,7 @@ class Engine:
         self.doc_digits = [digits(x) for x in self.doc]
         self.pos = {i: k for k, i in enumerate(self.ids)}
         self.docidx = DocIndex(self.doc)
+        self._pdf_terms(data.pdf_facts)
         self.by_party: dict[str, list[int]] = defaultdict(list)
         for k, p in enumerate(self.party):
             self.by_party[p].append(k)
@@ -111,6 +112,38 @@ class Engine:
         if src == dst:
             return amount
         return amount / self.rate(src, date) * self.rate(dst, date)
+
+    def _pdf_terms(self, facts: dict) -> None:
+        """Facts that only the PDFs state (pdfdocs): expected part-payment amounts, cancel-and-replace, paid-out notes."""
+        n = len(self.ids)
+        self.pdf_alt: dict[int, list[float]] = {}         # item -> amounts a part payment of it should have
+        self.never = [False] * n                          # cancelled-and-replaced invoices + their cancelling notes
+        self.paid_out = [False] * n                       # credit notes refunded by transfer: never netted
+        self.replaced_by: dict[int, int] = {}
+        if not facts:
+            return
+        ar = {(self.entity[k], self.doc_norm[k]): k for k in range(n) if self.kind[k][:2] == "AR" and self.doc_norm[k]}
+        for (ent, doc), f in facts.items():
+            k = ar.get((ent, doc))
+            if k is None:
+                continue
+            alt = [v for v in [f.get("payable"), *f.get("instalments", [])] if v]
+            if f.get("advance"):
+                alt.append(round(self.total[k] - f["advance"], 2))
+            if alt:
+                self.pdf_alt[k] = alt
+            if f.get("paid_out") and self.is_credit(k):
+                self.paid_out[k] = True
+            if f.get("cancels") and self.is_credit(k):
+                self.never[k] = True
+                j = ar.get((ent, f["cancels"]))
+                if j is not None:
+                    self.never[j] = True
+            if f.get("replaces"):
+                j = ar.get((ent, f["replaces"]))
+                if j is not None:
+                    self.never[j] = True
+                    self.replaced_by[j] = k
 
     def _parties(self):
         d = self.d
@@ -419,7 +452,7 @@ class Engine:
         out = []
         for p in parties:
             for k in self.by_party.get(p, ()):
-                if self.open[k] > CENT and self.kind[k][:2] == side and self.issue[k] <= limit:
+                if self.open[k] > CENT and self.kind[k][:2] == side and self.issue[k] <= limit                         and not self.never[k] and not (self.paid_out[k] and amount > 0):
                     out.append(k)
         return sorted(set(out), key=lambda k: (self.issue[k], self.ids[k]))
 
@@ -443,6 +476,9 @@ class Engine:
                 if k in seen or self.kind[k][:2] != side:
                     continue
                 if self.entity[k] != ent and not (ent == "ES00" and side == "AP"):
+                    continue
+                k = self.replaced_by.get(k, k)          # 'anula y sustituye': a payment citing X settles the replacement
+                if k in seen:
                     continue
                 seen.add(k)
                 found.append(k)
@@ -572,6 +608,10 @@ class Engine:
                     if named:
                         return [named[0]]
             return [singles[0]]
+        alt = [k for k in ks if k in self.pdf_alt and self.open[k] * 100 > target + 1
+               and any(round(a * 100) == target for a in self.pdf_alt[k])]
+        if len(alt) == 1:                        # the PDF states this exact part payment (instalment / retention / advance)
+            return alt
         run = 0
         for i, v in enumerate(vals):             # oldest-first prefix
             run += v

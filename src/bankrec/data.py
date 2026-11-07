@@ -87,6 +87,7 @@ class Data:
     payruns: pd.DataFrame = field(default_factory=pd.DataFrame)
     advices_index: pd.DataFrame = field(default_factory=pd.DataFrame)
     pdf_index: pd.DataFrame = field(default_factory=pd.DataFrame)
+    pdf_facts: dict = field(default_factory=dict)   # (entity, doc) -> facts parsed from the PDFs (pdfdocs)
 
 
 ITEM_COLS = ["item_id", "kind", "entity", "party_id", "party_name", "doc", "issue_date", "due_date", "currency",
