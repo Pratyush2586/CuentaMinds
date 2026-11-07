@@ -72,6 +72,8 @@ class Engine:
         self.acct_ccy = dict(zip(data.bank_accounts.account_id, data.bank_accounts.currency))
         self.result: dict[str, list[Row]] = {}
         self._payer_ar_cache: dict[tuple[str, str], list[int]] = {}
+        self._pr_by_e2e: dict | None = None
+        self._card_cheque: dict | None = None
         self._ar_po: dict | None = None
         self._ar_suffix: dict = {}
         self.how: dict[str, str] = {}
@@ -700,6 +702,8 @@ class Engine:
         blob = bank_blob(txn)
         if amount < 0 and self.try_return(txn, blob):
             return
+        if self.try_reversal_or_advance(txn, blob):
+            return
         if self.try_advice(txn, blob):
             return
         if self.nonitem:
@@ -734,7 +738,75 @@ class Engine:
                 return
         if self.try_credit_refund(txn, blob):
             return
+        if amount > 0 and _DUP_REFUND_RE.search(blob) and not refs:   # a supplier returning our duplicate payment
+            self.emit(t, [Row(None, None, "SUPPLIER_REFUND", "")], "supplier_refund")
+            return
         self.try_duplicate(txn, blob, refs)
+
+    def try_reversal_or_advance(self, txn: dict, blob: str) -> bool:
+        """Flows POLICIES names but the matcher had no stage for:
+        - a receipt quoting a proforma -> CUSTOMER_ADVANCE (no invoice exists yet);
+        - an incoming RETURN of one of our payment-run transfers (quoted end-to-end id) -> its documents, RETURNED;
+        - a returned cheque / card chargeback debit quoting the cheque number / card order -> that invoice, RETURNED.
+        RETURNED re-opens the items."""
+        t, amount = txn["bank_txn_id"], float(txn["amount"])
+        if amount > 0 and _PROFORMA_RE.search(blob):
+            self.emit(t, [Row(None, None, "CUSTOMER_ADVANCE", "")], "advance")
+            return True
+        if amount > 0 and _RETURN_RE.search(blob) and len(self.d.payruns):
+            if self._pr_by_e2e is None:
+                pr = self.d.payruns
+                self._pr_by_e2e = {e: g for e, g in pr.groupby("end_to_end_id", sort=False)}
+            for tok in set(_RUN_REF.findall(blob)):
+                g = self._pr_by_e2e.get(tok)
+                if g is None:
+                    continue
+                rows = []
+                for r in g.itertuples():
+                    amt = abs(float(r.document_amount))
+                    hits = [k for k in self.docidx.lookup(norm(r.document_number))
+                            if self.kind[k][:2] == "AP" and self.entity[k] == txn["entity"]]
+                    if hits:
+                        k = min(hits, key=lambda k: abs(self.total[k] - amt))
+                        rows.append(Row(self.ids[k], round(amt, 2), "", "RETURNED"))
+                if rows and abs(sum(r.amount for r in rows if not self.is_credit(self.pos[r.item])) -
+                                sum(r.amount for r in rows if self.is_credit(self.pos[r.item])) - amount) <= 0.01:
+                    for r in rows:
+                        k = self.pos[r.item]
+                        self.open[k] += r.amount
+                    self.emit(t, rows, "returned_transfer")
+                    return True
+        if amount < 0 and (_CHEQUE_RETURN_RE.search(blob) or _CHARGEBACK_RE.search(blob)):
+            cash = abs(amount)
+            for tok in set(tokens(blob)):
+                hits = [k for k in self.docidx.lookup(tok) if self.kind[k] == "ARI" and self.entity[k] == txn["entity"]]
+                k = self._card_or_cheque_item(tok, txn["entity"], cash) if not hits else                     min(hits, key=lambda k: abs(self.total[k] - cash))
+                if k is not None and abs(self.total[k] - cash) <= max(0.01, 0.005 * cash):
+                    self.open[k] += cash
+                    self.emit(t, [Row(self.ids[k], round(cash, 2), "", "RETURNED")], "reversal")
+                    return True
+        return False
+
+    def _card_or_cheque_item(self, tok: str, entity: str, cash: float) -> int | None:
+        """Invoice behind a card order number or a deposited cheque number (from the batch files)."""
+        if self._card_cheque is None:
+            self._card_cheque = {}
+            for r in self.d.cards.itertuples() if len(self.d.cards) else ():
+                self._card_cheque.setdefault(norm(str(r.order_number)), ("card", r))
+            for r in self.d.cheques.itertuples() if len(self.d.cheques) else ():
+                self._card_cheque.setdefault(norm(str(r.cheque_number)), ("cheque", r))
+        hit = self._card_cheque.get(norm(tok))
+        if not hit:
+            return None
+        kind, r = hit
+        ref = r.order_number if kind == "card" else (r.stub_reference or "")
+        for k in self.docidx.lookup(norm(str(ref))) if ref else ():
+            if self.kind[k] == "ARI":
+                return k
+        if kind == "cheque":
+            parties = self.identify_party({"entity": entity, "counterparty_name": r.drawer}, fold(r.drawer))
+            return self.party_item(parties, "AR", float(r.amount))
+        return None
 
     def try_duplicate(self, txn: dict, blob: str, refs: list[int]) -> bool:
         """A known payer pays again exactly an invoice that is already settled."""
@@ -1223,6 +1295,11 @@ _MONTH_RE = re.compile(r"(?:(MANT|SERVICE|SERVICES|SERVICIOS|SERVICIO|WARTUNG|EN
 
 
 _INSTALMENT_RE = re.compile(r"(?:INSTAL+MENT|PRESTA[CÇ]A?O|PARCELA|ECHEANCE|PLAZO|CUOTA|RATA|TEILZAHLUNG|RATE)\D{0,6}(\d{1,2})\s*/\s*(\d{1,2})")
+_PROFORMA_RE = re.compile(r"\bPROFORMA\b|\bPF\d{2}-\d{4,}")
+_RETURN_RE = re.compile(r"\bRETURN|DEVOLUCI|\bRETOUR|RUECKUEBERWEISUNG|RUCKUBERWEISUNG|\bSTORNO|\bRESTITUZ|\bREJECT")
+_CHEQUE_RETURN_RE = re.compile(r"(?:RETURNED ITEM|IMPAYE|DEVUELTO|UNPAID|SIN FONDOS|INSOLUTO|NICHT EINGELOEST).{0,40}?(?:CHK|CHQ|CHEQUE|CHEQUE)|(?:CHK|CHQ|CHEQUE).{0,40}?(?:RETURNED|IMPAYE|DEVUELTO|UNPAID|SIN FONDOS)")
+_CHARGEBACK_RE = re.compile(r"CHARGEBACK|CONTRACARGO|RUECKBELASTUNG|RETROCESION|RIADDEBITO")
+_DUP_REFUND_RE = re.compile(r"DUPLICAD|DUPLICATE|DOPPELZAHLUNG|DOUBLON|REEMBOLSO|REFUND|REMBOURSEMENT|ERSTATTUNG|RIMBORSO")
 _RUN_REF = re.compile(r"\b[A-Z]{2}\d{10,14}(?:-\d{2,5})?\b")
 
 
