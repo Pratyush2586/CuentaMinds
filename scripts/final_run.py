@@ -91,6 +91,8 @@ def main() -> int:
         if problems:
             print("SANITY WARNINGS:", problems)
         del data
+        step(3, "input-parser agent: raw-input drift vs LIVE (label-free, advisory)")
+        subprocess.call([PY, str(ROOT / "scripts" / "final_profile.py"), "final"], cwd=ROOT)   # never blocks the run
         step(4, "run")
         commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
         if subprocess.call([PY, "-m", "bankrec.cli", "run", "--phase", "final", "--out", str(out),
@@ -100,15 +102,18 @@ def main() -> int:
     gate = subprocess.run([PY, str(ROOT / "scripts" / "final_gate.py"), "check", "final", str(out)], cwd=ROOT,
                           capture_output=True, text=True, encoding="utf-8", errors="replace")
     print(gate.stdout)
+    prof = ROOT / "submissions" / "final_profile.md"
+    gate_text = gate.stdout + ("\n\nINPUT PROFILE (raw FINAL inputs vs LIVE)\n" + prof.read_text(encoding="utf-8")
+                               if prof.exists() else "")
     gate_file = Path(str(out) + ".gate.txt")
-    gate_file.write_text(gate.stdout, encoding="utf-8")
+    gate_file.write_text(gate_text, encoding="utf-8")
     if not a.no_review:
         step(6, "Claude release-manager review (advisory)")
         subprocess.call([PY, str(ROOT / "scripts" / "analyst.py"), "final-review", str(gate_file)], cwd=ROOT)
     step(7, "checkpoint: internal assessment -> your decision")
     sys.path.insert(0, str(ROOT / "scripts"))
     import checkpoint
-    if not checkpoint.ask(checkpoint.assess("final", str(out), gate.stdout)):
+    if not checkpoint.ask(checkpoint.assess("final", str(out), gate_text)):
         print(f"\nNOT uploaded. To come back to this checkpoint later (after improving and re-running):\n"
               f"  {PY} scripts/final_run.py --skip-run --file {a.file}")
         return 0

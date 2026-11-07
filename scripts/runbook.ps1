@@ -16,7 +16,7 @@
   ... -From 7          start at step 7          ... -DryRun     only print the steps
 #>
 param(
-    [ValidateSet("setup", "live", "final", "all")] [string]$Phase = "setup",
+    [ValidateSet("setup", "live", "final", "fixloop", "all")] [string]$Phase = "setup",
     [string]$Target = "C:\Users\learn\Documents\prat\Hackathon\CuentaMinds",
     [string]$Source = "C:\Users\learn\Documents\prat\Hackathon\nova7nov",
     [string]$Repo = "https://github.com/Pratyush2586/CuentaMinds.git",
@@ -156,6 +156,31 @@ if ($Phase -in @("final", "all")) {
         "ONE scored upload: only typing UPLOAD at the checkpoint sends it (run step ~20 min)" `
         "python scripts\final_run.py --download" {
         Push-Location $Target; & $Py scripts\final_run.py --download; Pop-Location
+    }
+}
+
+# --------------------------------------------------------------------------------------------- fixloop
+# Only after a FINAL run that was NOT uploaded and whose review / input profile shows a fixable gap.
+# One loop = fix (Claude Code, in nova7nov) -> TRAIN eval -> hold-out -> FINAL rebuild -> checkpoint (~30 min).
+if ($Phase -eq "fixloop") {
+    Step "Show the agents' findings" "input profile (drift) + gate + release-manager review of the last FINAL build" `
+        "type submissions\final_profile.md, submissions\final_v1.csv.gz.gate.txt" {
+        Get-Content (Join-Path $Target "submissions\final_profile.md") -ErrorAction SilentlyContinue | Select-String "WARN|OK\]"
+        Get-Content (Join-Path $Target "submissions\final_v1.csv.gz.gate.txt") -ErrorAction SilentlyContinue | Select-String "GATE:|^\s*\["
+        Get-ChildItem (Join-Path $Target "autoresearch\analyst") -Filter "*final_review*" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime | Select-Object -Last 1 | ForEach-Object { Get-Content $_.FullName -TotalCount 60 }
+        $global:LASTEXITCODE = 0
+    }
+    Step "Delegate the fix" "paste the findings to Claude Code; it makes ONE change in nova7nov, simulates it, runs the TRAIN dev eval (keep / auto-revert) and pushes main only if kept" `
+        "(Claude Code) -- press Enter here once it says the fix is pushed" { $global:LASTEXITCODE = 0 }
+    SyncEngine
+    Step "Audit: hold-out month, measured in your clone" "measure-only (no revert); must not fall below 93.18 on 2025-05 (~4 min)" `
+        "python scripts\autoresearch.py holdout" {
+        Push-Location $Target; & $Py scripts\autoresearch.py holdout; Pop-Location
+    }
+    Step "Rebuild FINAL + gate + review + CHECKPOINT" "same archive, new engine; only typing UPLOAD sends it (~20 min)" `
+        "python scripts\final_run.py" {
+        Push-Location $Target; & $Py scripts\final_run.py; Pop-Location
     }
 }
 
