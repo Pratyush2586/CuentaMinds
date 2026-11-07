@@ -7,3 +7,4 @@ d08959f	90.880	91.80	89.96	live_v11.csv.gz	90.81	one partial among quoted invoic
 3d67c36	91.160	92.09	90.23	live_v12.csv.gz	91.11	unimplemented flows (advances, returns, chargebacks, dup refunds)
 9c3f786	91.225	92.12	90.33	live_v13.csv.gz	91.16	skeptic-tightened flows + cheque short stubs
 9f72a96	91.555	92.38	90.73	live_v14.csv.gz	91.47	PDF facts
+99f29e7	93.860	94.14	93.58	live_v16.csv.gz	92.59	UNIDENTIFIED rule, payment runs per account (mostly TRAIN-only effect), window-minus-hole, discounts; hold-out 2025-05 = 92.86

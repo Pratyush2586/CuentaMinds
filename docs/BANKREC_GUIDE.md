@@ -668,7 +668,7 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | 20375dc | | 92.70 | 91.03 | | unmatched known payer → `UNIDENTIFIED` exception when the cash is a round sum (×50) or quotes no document number |
 | 06eca49 | | 93.67 | 93.08 | | **bug fix: payment runs grouped per debtor account** (run / end-to-end ids are reused across entities → wrong items + false FX_DIFFERENCE + false DUPLICATE_PAYMENT): **+1.51** |
 | f499d8f | | 93.81 | 93.27 | live_v15 | multi-invoice receipt = due-date window of the payer's open items with one invoice left out |
-| **99f29e7** | | **94.14** | **93.58** | | early-payment discount on one invoice of a multi-invoice receipt (SHORT_DISCOUNT in window, PARTIAL late); unquoted single net-of-discount payments |
+| **99f29e7** | | **94.14** | **93.58** | **92.59** (live_v16) | early-payment discount on one invoice of a multi-invoice receipt (SHORT_DISCOUNT in window, PARTIAL late); unquoted single net-of-discount payments |
 
 ### 9.3 Autoresearch log (2026-11-07)
 
@@ -959,4 +959,5 @@ Discarded experiments are recorded only in §9.3 (one line), so nobody tries the
 | 11-07 14:25 | – | **LIVE v13 = 91.16** (pred 91.14); SME review pack |
 | 11-07 15:10 | 9f72a96 | **PDF facts** (+0.33): instalments, retention, advance, cancel & replace, cancelling / paid-out credit notes; SME credit-note rule verified |
 | 11-07 15:20 | ecf7053, 34e6f22 | PDF facts hardened (skeptic); **upload checkpoint** (LIVE y/N, FINAL type UPLOAD); `docs/RUNBOOK_POWERSHELL.md` |
+| 11-07 16:35 | – | **LIVE v16 = 92.59** (+1.12). TRAIN→LIVE gap widened to 1.27: the payment-run id collisions are far more frequent in the merged TRAIN months than in LIVE (AP segments were already right on LIVE), so most of that +1.51 is TRAIN-only; LIVE gains came from discounts, credit notes and the UNIDENTIFIED exception (macro-F1 0.864 → 0.887). The checkpoint now uses the wider gap |
 | 11-07 16:20 | 20375dc..99f29e7 | **LIVE v14 = 91.47**; team gap analysis verified: UNIDENTIFIED rule, payment-run account bug (+1.51), window-minus-hole, discounts: **TRAIN eval 91.555 → 93.86** |
