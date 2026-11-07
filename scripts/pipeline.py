@@ -7,7 +7,8 @@
 Steps and their guards:
   1. code state: the commit is recorded in the note; a dirty engine (uncommitted src/bankrec changes) is refused
   2. `bankrec run --phase live` (official validation inside; stops unless "ok": true)
-  3. `scripts/submit.py LIVE` (re-validates, 3-min spacing, daily quota, saves the scored JSON)   [--submit only]
+  3. checkpoint (scripts/checkpoint.py): predicted score + 'upload? [y/N]'; then `scripts/submit.py LIVE`
+     (re-validates, 3-min spacing, daily quota, saves the scored JSON)   [--submit only; --yes skips the question]
   4. `scripts/live_report.py` (new vs previous upload vs TRAIN months, ranked by lines lost)
 FINAL is deliberately NOT automated here: follow docs/BANKREC_GUIDE.md §11 and submit.py's explicit FINAL flag.
 """
@@ -32,7 +33,8 @@ def main() -> int:
     ap.add_argument("--tag", help="version tag, e.g. v10 -> submissions/live_v10.csv.gz")
     ap.add_argument("--file", help="skip the build and use this file")
     ap.add_argument("--note", default="")
-    ap.add_argument("--submit", action="store_true")
+    ap.add_argument("--submit", action="store_true", help="upload after the checkpoint asks you (y/N)")
+    ap.add_argument("--yes", action="store_true", help="skip the checkpoint question (unattended agent runs, LIVE only)")
     a = ap.parse_args()
     commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
     if a.file:
@@ -49,8 +51,13 @@ def main() -> int:
               "--note", f"LIVE {a.tag} = {commit} {a.note}".strip()) != 0:
             sys.exit("LIVE run failed or did not validate: nothing uploaded")
     if a.submit:
-        if sh(PY, str(ROOT / "scripts" / "submit.py"), "LIVE", str(out), "--note", f"{commit} {a.note}".strip()) != 0:
-            print("upload did not end in 'scored' (see above)")
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import checkpoint
+        if a.yes:
+            checkpoint.show(checkpoint.assess("live", str(out)))
+        if a.yes or checkpoint.ask(checkpoint.assess("live", str(out))):
+            if sh(PY, str(ROOT / "scripts" / "submit.py"), "LIVE", str(out), "--note", f"{commit} {a.note}".strip()) != 0:
+                print("upload did not end in 'scored' (see above)")
     sh(PY, str(ROOT / "scripts" / "live_report.py"))
     return 0
 

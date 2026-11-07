@@ -3,11 +3,12 @@
     python scripts/final_run.py                       # archive already in data/: verify, extract, sanity, run, gate, review
     python scripts/final_run.py --download            # also download the archive from the public Datos URL
     python scripts/final_run.py --skip-run --file submissions/final_v1.csv.gz    # gate + review an existing file
-    python scripts/final_run.py ... --upload --i-confirm-final-is-one-shot          # and upload (ONE scored FINAL)
+    (the last step always shows the internal assessment and asks you to type UPLOAD; anything else = no upload)
 
 Steps: 1 checksum against the site's public config.json · 2 extract to data/valtermia/final · 3 sanity (lines, dates,
 masters_final, ZA01, fx dates) · 4 `bankrec run --phase final` · 5 readiness gate (scripts/final_gate.py) ·
-6 Claude release-manager review of the gate (scripts/analyst.py final-review) · 7 upload only with both flags.
+6 Claude release-manager review of the gate (scripts/analyst.py final-review) · 7 CHECKPOINT: predicted score, gate
+verdict, risks -> you type UPLOAD to send the one scored FINAL file (scripts/checkpoint.py), otherwise nothing is sent.
 """
 from __future__ import annotations
 
@@ -52,8 +53,6 @@ def main() -> int:
     ap.add_argument("--skip-run", action="store_true")
     ap.add_argument("--file", default="submissions/final_v1.csv.gz")
     ap.add_argument("--no-review", action="store_true", help="skip the Claude review")
-    ap.add_argument("--upload", action="store_true")
-    ap.add_argument("--i-confirm-final-is-one-shot", dest="confirm", action="store_true")
     a = ap.parse_args()
     out = ROOT / a.file
     if not a.skip_run:
@@ -106,12 +105,13 @@ def main() -> int:
     if not a.no_review:
         step(6, "Claude release-manager review (advisory)")
         subprocess.call([PY, str(ROOT / "scripts" / "analyst.py"), "final-review", str(gate_file)], cwd=ROOT)
-    step(7, "upload")
-    if not (a.upload and a.confirm):
-        print(f"NOT uploaded. When the team agrees:\n  {PY} scripts/submit.py FINAL {a.file} --i-confirm-final-is-one-shot")
+    step(7, "checkpoint: internal assessment -> your decision")
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import checkpoint
+    if not checkpoint.ask(checkpoint.assess("final", str(out), gate.stdout)):
+        print(f"\nNOT uploaded. To come back to this checkpoint later (after improving and re-running):\n"
+              f"  {PY} scripts/final_run.py --skip-run --file {a.file}")
         return 0
-    if "GATE: FAIL" in gate.stdout:
-        sys.exit("gate FAIL: refusing to upload (fix, re-run, or upload by hand if you accept the risk)")
     return subprocess.call([PY, str(ROOT / "scripts" / "submit.py"), "FINAL", str(out), "--i-confirm-final-is-one-shot"],
                            cwd=ROOT)
 
