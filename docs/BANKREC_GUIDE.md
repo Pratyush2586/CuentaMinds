@@ -442,8 +442,8 @@ look → one generic fix → re-run (about 20 min) → gate again → upload. Th
 | item | state |
 |---|---|
 | best engine | `main` = `43b9049` (= experiment `8469efa` + log). **TRAIN-month mean 90.55** (2025-03: 91.46, 2024-10: 89.64) |
-| LIVE leaderboard | CuentaMinds **87.90** (live_v8), 2nd. Leader: Exponential 90.69. (live_v7 87.56, live_v4 79.55) |
-| LIVE v8 breakdown | pair F1 89.9 % (P 97.4, R 83.4) · line accuracy 91.1 % · exception macro-F1 78.1 % (results in `submissions/results/`) |
+| LIVE leaderboard | CuentaMinds **90.32** (live_v9), 5th at 12:35: Stressed Vibing 92.38 · Saturn Returns 91.92 · Equipo 9 91.17 · Exponential 90.69 |
+| LIVE v9 breakdown | pair F1 92.2 % (P 97.6, R 87.4) · line accuracy 91.3 % · exception macro-F1 84.2 % (results in `submissions/results/`) |
 | next upload | `live_v9` = 90.55 engine + Sept-2025 advice-layout drift fix (§9.5) |
 | repo | pushed to GitHub (private) |
 
@@ -462,7 +462,7 @@ look → one generic fix → re-run (about 20 min) → gate again → upload. Th
 | exp 3b | | (89.42) | (87.32) | **87.56** (live_v7) | confirming by beneficiary maturity, next business day |
 | exp 6 | | 91.43 | 89.60 | | party-name coverage rounding (float tie bug) |
 | **exp 7** | | **91.46** | **89.64** | **87.90** (live_v8) | within a day, referenced lines first |
-| drift fix | | 91.46 | 89.64 | live_v9 | advice short invoice numbers / PO (LIVE-only layout, neutral on TRAIN) |
+| drift fix | | 91.46 | 89.64 | **90.32** (live_v9) | advice short invoice numbers / PO (LIVE-only layout, neutral on TRAIN): **+2.42 on LIVE** |
 
 ### 9.3 Autoresearch log (2026-11-07)
 
@@ -702,4 +702,5 @@ Discarded experiments are recorded only in §9.3 (one line), so nobody tries the
 | 11-07 11:50 | f72c002 | guide rewritten to current state |
 | 11-07 12:10 | c3731f3 | LIVE v7 = 87.56; drift fix for the Sept-2025 advice layout; drift-fix rule in AUTORESEARCH.md |
 | 11-07 12:25 | cf56148 | LIVE v8 = 87.90; upload + feedback pipeline (`submit.py`, `live_report.py`, `pipeline.py`) |
-| 11-07 12:30 | – | FINAL readiness gate (`final_gate.py`), run stats sidecar (`<file>.stats.json`), guide §8.4 |
+| 11-07 12:30 | c30a802 | FINAL readiness gate (`final_gate.py`), run stats sidecar (`<file>.stats.json`), guide §8.4 |
+| 11-07 12:35 | – | **LIVE v9 = 90.32** (+2.42, drift fix confirmed), first upload through `pipeline.py --submit` |

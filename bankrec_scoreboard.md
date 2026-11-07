@@ -43,3 +43,5 @@
 | 2026-11-07 10:57 | live | submissions\live_v6.csv.gz | valid (no golden: upload to score) | LIVE v6 = v25 (TRAIN-month 89.33, sample 91.75) |
 | 2026-11-07 11:44 | live | submissions\live_v7.csv.gz | valid (no golden: upload to score) | LIVE v7 = v25 + confirming by maturity (eval 90.27) |
 | 2026-11-07 12:06 | live | submissions\live_v8.csv.gz | valid (no golden: upload to score) | LIVE v8 = + coverage rounding + referenced-first ordering (eval 90.55) |
+| 2026-11-07 12:27 | live | submissions\live_v9.csv.gz | valid (no golden: upload to score) | LIVE v9 = eval 90.55 engine + Sept-2025 advice layout drift fix |
+| 2026-11-07 12:29 | live UPLOAD | submissions/live_v9.csv.gz | 90.32 (platform) | c30a802 v9 = eval 90.55 + Sept-2025 advice layout drift fix |
