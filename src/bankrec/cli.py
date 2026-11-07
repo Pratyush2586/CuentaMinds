@@ -69,7 +69,7 @@ def cmd_run(a) -> int:
         start = pd.Timestamp(f"{a.month}-01")
         advices = load_advices([data.phase_dir], root / "cache",
                                min_received=(start - pd.DateOffset(days=35)).strftime("%Y-%m-%d"),
-                               max_received=data.txns.booking_date.max())
+                               max_received=(pd.Timestamp(data.txns.booking_date.max()) + pd.Timedelta(days=20)).strftime("%Y-%m-%d"))  # advices arrive after the payment; LIVE/FINAL ship the whole phase
         mp = root / "cache" / f"nonitem_ex_{a.month}.json" if (root / "cache" / f"nonitem_ex_{a.month}.json").exists() else mp
     else:
         data = D.load(root, a.phase)
