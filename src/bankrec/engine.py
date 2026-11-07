@@ -1172,6 +1172,9 @@ class Engine:
                 rows = []
                 for r in g.itertuples():
                     k = lookup_doc(r.stub_reference, ent, "AR", float(r.amount), r.drawer)
+                    if k is None and r.stub_reference:   # short stub numbers: same resolver as advice lines
+                        k = self._adv_doc({"entity": ent, "payer": r.drawer},
+                                          {"tokens": [norm(str(r.stub_reference))], "nums": [float(r.amount)]})
                     if k is None:
                         parties = self.identify_party({"entity": ent, "counterparty_name": r.drawer}, fold(r.drawer))
                         k = self.party_item(parties, "AR", float(r.amount), digits(r.stub_reference))
