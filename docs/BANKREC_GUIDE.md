@@ -1,7 +1,7 @@
 # CuentaMinds — Bank Reconciliation Engine: Developer Guide
 
 > **Who this is for:** a developer joining the team who must understand, run, evaluate, improve and submit this code.
-> **State as of:** 2026-11-07 15:25 · `main` = `final-engine` candidate · step-by-step PowerShell commands: [`docs/RUNBOOK_POWERSHELL.md`](RUNBOOK_POWERSHELL.md).
+> **State as of:** 2026-11-07 16:20 · `main` = `final-engine` candidate (TRAIN eval 93.86) · step-by-step PowerShell commands: [`docs/RUNBOOK_POWERSHELL.md`](RUNBOOK_POWERSHELL.md).
 > **Read order:** §1 (the problem) → §2 (setup) → §4 (architecture) → §8 (how we measure) → §10–11 (today's plan).
 > **This guide is kept current.** Every kept change updates §9 (status) and §16 (changelog); see §15.
 
@@ -664,7 +664,11 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | 3d67c36 | | 92.09 | 90.23 | **91.11** (live_v12) | proforma advances, returned transfers, cheque returns, chargebacks, duplicate refunds |
 | f62fe80 | | 92.04 | 90.24 | | skeptic-tightened flows (robustness, −0.02 within noise) |
 | 9c3f786 | | 92.12 | 90.33 | **91.16** (live_v13) | cheque/lockbox stubs with short numbers (same resolver as advices) |
-| **9f72a96 / ecf7053** | | **92.38** | **90.73** | live_v14 (pending) | **PDF facts** + hardening |
+| 9f72a96 / ecf7053 | | 92.38 | 90.73 | **91.47** (live_v14) | PDF facts + hardening |
+| 20375dc | | 92.70 | 91.03 | | unmatched known payer → `UNIDENTIFIED` exception when the cash is a round sum (×50) or quotes no document number |
+| 06eca49 | | 93.67 | 93.08 | | **bug fix: payment runs grouped per debtor account** (run / end-to-end ids are reused across entities → wrong items + false FX_DIFFERENCE + false DUPLICATE_PAYMENT): **+1.51** |
+| f499d8f | | 93.81 | 93.27 | live_v15 | multi-invoice receipt = due-date window of the payer's open items with one invoice left out |
+| **99f29e7** | | **94.14** | **93.58** | | early-payment discount on one invoice of a multi-invoice receipt (SHORT_DISCOUNT in window, PARTIAL late); unquoted single net-of-discount payments |
 
 ### 9.3 Autoresearch log (2026-11-07)
 
@@ -694,6 +698,11 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | f46d9f3 | +0.005 | discard | SME rule: invoice − its related credit note = payment, 1:1 (already covered by the pair search) |
 | 9f72a96 | **+0.330** | **keep** | **PDF facts**: instalment / retention / advance amounts, cancel & replace, cancelling and paid-out credit notes |
 | 8506390 → ecf7053 | 0.000 | **kept (robustness)** | PDF facts hardened (skeptic): sanity checks, type keys, versioned cache, never-crash fallback |
+| 20375dc | +0.310 | **keep** | unmatched known payer → UNIDENTIFIED when round sum / no document number (simulated +0.32 / +0.30 first) |
+| 06eca49 | **+1.510** | **keep** | payment runs grouped per (debtor account, run/e2e id): ids collide across entities |
+| (dup guard) | 0.00 | dropped | "already settled by a line that never quoted it → not a duplicate": +0.81 / +0.36 simulated before 06eca49, 0 after (same root cause) |
+| f499d8f | +0.165 | **keep** | due-date window minus one interior invoice (hole) |
+| 99f29e7 | +0.320 | **keep** | early-payment discount on one invoice of a multi-invoice receipt; single net-of-discount (first try crashed on NaN discount %, fixed) |
 | (earlier) | −0.50 | rejected | exact bitset subset-sum fallback for known payers: too many spurious exact sets |
 
 ### 9.4 Known gaps (LIVE v11 per-segment report, lines lost)
@@ -714,6 +723,15 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | a credit note references its invoice | `credit_notes.related_document` (structured); 95 % of netted notes point to an invoice on the same line | data available |
 | payment = invoice − its credit note → net first, then match 1:1 | implemented exactly (`_netted_single`, f46d9f3): **+0.005**, because the pair search already matches invoice + credit note pairs | **rule verified, already covered** (not kept) |
 | two lines: invoice in 1:1, credit note paid out separately | `try_credit_refund` (LIVE `ar_credit_note_paid_out` 88 %) + PDF "paid to your bank account" notes are never netted (pdfdocs) | handled; strengthened by the PDF facts |
+
+Second round of team feedback (16:00), verified on TRAIN:
+
+| point | finding | outcome |
+|---|---|---|
+| #1 commercial discount: an invoice paid in advance carries the early-payment discount | `ar_discount_late` was 23–35 % accurate: the discount was only recognised on a single picked invoice | multi-invoice + unquoted single → **+0.32** (99f29e7) |
+| #2 incorrect match: a payment took an invoice, so the right payment cannot find it | exactly the false `DUPLICATE_PAYMENT` cases (P = 0.41 on 2024-10); root cause = payment-run ids reused across entities | bug fixed → **+1.51** (06eca49) |
+| #3 big multi-invoice payments: "sum of invoices = payment first, else oldest" | missed sets do sum to the cash to the cent; they are due-date windows with an invoice left out | window-minus-one search → **+0.165** (f499d8f) |
+| gap analysis G3: UNIDENTIFIED exception missing on unmatched known payers | round sums / no document number are truly unidentified | **+0.31** (20375dc) |
 
 The remaining credit-note loss is **multi-invoice payments without references**, which needs a different idea (open question to the SME, §8 of the review pack).
 
@@ -941,3 +959,4 @@ Discarded experiments are recorded only in §9.3 (one line), so nobody tries the
 | 11-07 14:25 | – | **LIVE v13 = 91.16** (pred 91.14); SME review pack |
 | 11-07 15:10 | 9f72a96 | **PDF facts** (+0.33): instalments, retention, advance, cancel & replace, cancelling / paid-out credit notes; SME credit-note rule verified |
 | 11-07 15:20 | ecf7053, 34e6f22 | PDF facts hardened (skeptic); **upload checkpoint** (LIVE y/N, FINAL type UPLOAD); `docs/RUNBOOK_POWERSHELL.md` |
+| 11-07 16:20 | 20375dc..99f29e7 | **LIVE v14 = 91.47**; team gap analysis verified: UNIDENTIFIED rule, payment-run account bug (+1.51), window-minus-hole, discounts: **TRAIN eval 91.555 → 93.86** |
