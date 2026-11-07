@@ -127,6 +127,10 @@ close" prototype with a Gemini/Claude agent layer, kept for background (its ~300
 | `scripts/live_report.py` | **LIVE feedback**: platform result vs previous upload vs TRAIN months, per segment, ranked by lines lost |
 | `scripts/pipeline.py` | **end-to-end**: `bankrec run --phase live` → validate → (`--submit`) upload + score → report |
 | `scripts/final_gate.py` | **FINAL readiness gate**: label-free profile, calibrated on scored LIVE files → PASS/WARN/FAIL (§8.4) |
+| `scripts/final_run.py` | **FINAL orchestrator**: checksum → extract → sanity → run → gate → Claude review → guarded upload |
+| `scripts/analyst.py` | **Claude personas** (advisory): `hypotheses`, `skeptic COMMIT`, `final-review GATE.txt` |
+| `scripts/overfit_guard.py` | static scan of engine diffs for memorised ids/dates/amounts/codes (exit 1 on findings) |
+| `bankrec_calibration.tsv` | TRAIN-eval vs LIVE-score pairs per engine commit |
 | `bankrec_scoreboard.md` | every `bankrec run` appends a line here (time, phase, file, score, note) |
 | `docs/BANKREC_GUIDE.md` | this guide |
 | `docs/AUTORESEARCH.md` | the experiment protocol the agent follows ("program.md") |
@@ -397,41 +401,88 @@ Following [karpathy/autoresearch](https://github.com/karpathy/autoresearch). The
   `submission.py`, `data.load_train_month`. A change to the evaluation itself is a separate `fix(eval):` commit,
   followed by a new **baseline**, as with the advice window on 2026-11-07.
 
-### 8.4 FINAL readiness: internal evaluation without a golden (`scripts/final_gate.py`)
+### 8.4 Evaluation strategy for a one-shot FINAL
 
-FINAL has no golden and **one** scored upload, so the score can't be checked. Three layers of evidence:
+FINAL gives **one** scored upload and no feedback until the reveal. So the decision to upload rests on evidence we
+build ourselves, in four layers. Each one answers a different question and has a different tool:
 
-| layer | question | tool |
-|---|---|---|
-| 1. TRAIN months | is the engine logic right? | `autoresearch.py eval` (official scorer, real golden) |
-| 2. LIVE uploads | does it carry over to unseen, drifted data? | `pipeline.py --submit` + `live_report.py` (per segment vs TRAIN) |
-| 3. FINAL gate | did anything break on the FINAL inputs? | `final_gate.py check final FILE` (label-free) |
-
-**The gate (layer 3)** profiles a submission without labels:
-- share of lines with an allocation, UNIDENTIFIED rates, amount coverage and rows per line, overall, per side and **per entity**;
-- the exception mix;
-- from the run's `<file>.stats.json`: stage mix per entity, **advice-line resolution**, masters folder, fx end date.
-
-It compares that profile with the best **scored LIVE file**. Verdicts:
-- **FAIL**: a new entity (ZA01) mostly unallocated or unidentified, or the run didn't use `masters_final`.
-- **WARN**: overall allocation −3pp; an entity −10pp; UNIDENTIFIED ×2; an exception rate ×2.5 or ×0.4; advice resolution < 95 %; fx rates ending before June 2026.
-- **PASS**: none of the above.
-
-It also prints a rough estimate: the baseline LIVE score minus half the lost allocation share.
-
-**Calibration** (`final_gate.py calibrate`): on the scored LIVE files the proxies move with the real score.
-
-| file | LIVE | allocated | UNIDENTIFIED cat. |
+| layer | question | tool | evidence |
 |---|---|---|---|
-| live_v4 | 79.55 | 0.841 | 0.083 |
-| live_v7 | 87.56 | 0.850 | 0.076 |
-| live_v8 | 87.90 | 0.856 | 0.070 |
+| **1. TRAIN dev months** | is the logic right? | `autoresearch.py eval` (official scorer, real golden, held-out category model) | 2025-03 + 2024-10 mean; keep ≥ +0.02, no month −0.30 |
+| **2. TRAIN hold-out** | does it generalise beyond the months we tune on? | `autoresearch.py holdout` (2025-05, never used for decisions) | must move in the same direction as the dev mean |
+| **3. LIVE uploads** | does it carry over to unseen, drifted data? | `pipeline.py --submit` → `live_report.py` (per segment vs TRAIN) | platform score; segments failing *only* on LIVE = drift |
+| **4. FINAL gate** | did anything break on the FINAL inputs? | `final_run.py` → `final_gate.py` (label-free) → `analyst.py final-review` | PASS / WARN / FAIL vs the best scored LIVE file |
 
-Honest limits: the proxies catch **breakage** (an entity, parser or master that didn't load), not subtle allocation
-errors. Allocation quality is what layers 1–2 measure. Re-run `calibrate` after each new LIVE score.
+#### Calibration: TRAIN eval → LIVE (`bankrec_calibration.tsv`)
 
-**Agentic use at 18:00:** run FINAL → gate → if WARN/FAIL, the per-entity table and `by_entity_stage` show where to
-look → one generic fix → re-run (about 20 min) → gate again → upload. The time budget allows **one** fix iteration (§11).
+Every LIVE score is paired with the TRAIN-eval score of the same engine commit:
+
+| LIVE file | TRAIN eval | LIVE | gap |
+|---|---|---|---|
+| live_v7 | 90.27 | 87.56 | 2.71 |
+| live_v8 | 90.55 | 87.90 | 2.65 |
+| live_v9 (drift fix) | 90.55 | 90.32 | **0.23** |
+| live_v10 | 90.77 | 90.69 | **0.08** |
+
+The gap was almost entirely the Sept-2025 advice-layout drift (a LIVE-only behaviour). After that fix, **the TRAIN
+evaluation predicts LIVE within about 0.2**. The harness prints `predicted LIVE ~ eval − median recent gap` for every
+experiment. **Add a row after every LIVE upload.** If the gap opens again, a new drift exists: find it with
+`live_report.py` (the gap column) before tuning anything else.
+
+What the scoring rewards, learned from the uploads:
+- **Pair recall** dominates. v9's +2.4 came from many-invoice advices (recall 0.834 → 0.874).
+- **Exception macro-F1** is 20 % but each exception type weighs the same. Rare exceptions such as PARTIAL, SHORT_DISPUTE and DUPLICATE_PAYMENT pay off.
+- **Line accuracy** moves least, because big lines are rare.
+
+#### Anti-overfitting rules (all enforced or checked)
+
+1. **Decide on TRAIN, confirm on the hold-out, observe on LIVE.** LIVE feedback *finds* drift; it never sets a number.
+2. **Constants come from POLICIES.md or from distributions in TRAIN golden** that hold in more than one month (e.g.
+   `PARTIAL_FRACTIONS` = 25/30/40/50/60/70 % seen identically in 2025-03 and 2024-10). Never fit a constant to LIVE.
+3. **No literals keyed to the data.** `scripts/overfit_guard.py [BASE]` scans engine diffs for record/party ids, dates,
+   money literals and entity/account codes. It exits 1 when it finds any, and it had 0 findings since last night.
+4. **One change per experiment.** The harness keeps or reverts it. The simplicity rule applies: equal score with simpler code is kept.
+5. **Skeptic review before promotion.** `analyst.py skeptic COMMIT` (Claude) checks overfitting, FINAL-drift and
+   runtime risk. Its first review found a real currency-mixing bug and a runtime trap; both were fixed.
+6. **Drift fixes** (LIVE/FINAL-only behaviour) are kept only when TRAIN is neutral **and** a direct measurement on the
+   LIVE inputs justifies them, then confirmed by the next LIVE upload (`docs/AUTORESEARCH.md`).
+7. **Code freeze at 15:30.** FINAL runs the exact engine of the best LIVE file. After 18:00 only a gate FAIL justifies a change.
+
+#### Agents in the framework (Claude API, advisory only)
+
+`scripts/analyst.py` uses `claude-opus-5-5` (adaptive thinking, effort high, refusal fallback). It never edits code and
+never sees answers; every report is saved to `autoresearch/analyst/` with its cost (about $0.10 per call, budget $100).
+
+| persona | input | output | when |
+|---|---|---|---|
+| `hypotheses` (analyst) | LIVE report, calibration, experiment log, POLICIES | the 5 next experiments, with mechanism, generic rule, TRAIN test and overfit risk | after each LIVE upload |
+| `skeptic` (reviewer) | one experiment's diff + log | KEEP / KEEP WITH CHANGES / REVERT, with reasons | before promoting to `main` |
+| `final-review` (release manager) | FINAL gate output + calibration | go / no-go, expected range, residual risks | tonight, step 6 of `final_run.py` |
+
+The coding agent (Claude Code) runs the ReAct loop (§8.3). The personas are a second opinion that is cheap,
+reproducible and logged.
+
+#### The FINAL gate (layer 4, `scripts/final_gate.py`)
+
+It builds a label-free profile:
+- share of lines allocated, UNIDENTIFIED rates, amount coverage and rows per line, overall, per side and **per entity**;
+- the exception mix;
+- from `<file>.stats.json`: stage mix per entity, advice-line resolution, masters folder and fx end date.
+
+It compares that profile with the best scored LIVE file. Verdicts:
+- **FAIL**: a new entity (ZA01) mostly unallocated or unidentified, or `masters_final` not used.
+- **WARN**: allocation −3pp; an entity −10pp; UNIDENTIFIED ×2; an exception rate ×2.5 or ×0.4; advice resolution < 95 %; fx ending before June 2026.
+
+Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated share and amount coverage correlate
+0.95 with the platform score. They catch **breakage** reliably, not subtle errors; layers 1–3 measure those.
+
+#### FINAL-specific safeguards built in
+
+- FINAL merges the previous masters into `masters_final`, so old names and IBANs survive renames and bank changes
+  (`data._merge_previous_masters`, unit-tested).
+- Advice lines with short numbers or only a PO resolve (the Sept-2025 layout fix).
+- Payment runs join on quoted ids, so FX transfers in a new currency (ZAR) still join.
+- Reproducible runs (pinned hash seed), and the stats sidecar for the gate.
 
 ---
 
@@ -703,4 +754,6 @@ Discarded experiments are recorded only in §9.3 (one line), so nobody tries the
 | 11-07 12:10 | c3731f3 | LIVE v7 = 87.56; drift fix for the Sept-2025 advice layout; drift-fix rule in AUTORESEARCH.md |
 | 11-07 12:25 | cf56148 | LIVE v8 = 87.90; upload + feedback pipeline (`submit.py`, `live_report.py`, `pipeline.py`) |
 | 11-07 12:30 | c30a802 | FINAL readiness gate (`final_gate.py`), run stats sidecar (`<file>.stats.json`), guide §8.4 |
-| 11-07 12:35 | – | **LIVE v9 = 90.32** (+2.42, drift fix confirmed), first upload through `pipeline.py --submit` |
+| 11-07 12:35 | f8b4a36 | **LIVE v9 = 90.32** (+2.42, drift fix confirmed), first upload through `pipeline.py --submit` |
+| 11-07 13:05 | d08959f | instalments, partial shares, one partial among quoted invoices (eval 90.88); **LIVE v10 = 90.69** |
+| 11-07 13:20 | a4c5b00 | evaluation strategy (§8.4): calibration, Claude analyst personas, overfit guard, FINAL orchestrator, FINAL masters merge |
