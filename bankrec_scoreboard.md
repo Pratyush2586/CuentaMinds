@@ -45,3 +45,5 @@
 | 2026-11-07 12:06 | live | submissions\live_v8.csv.gz | valid (no golden: upload to score) | LIVE v8 = + coverage rounding + referenced-first ordering (eval 90.55) |
 | 2026-11-07 12:27 | live | submissions\live_v9.csv.gz | valid (no golden: upload to score) | LIVE v9 = eval 90.55 engine + Sept-2025 advice layout drift fix |
 | 2026-11-07 12:29 | live UPLOAD | submissions/live_v9.csv.gz | 90.32 (platform) | c30a802 v9 = eval 90.55 + Sept-2025 advice layout drift fix |
+| 2026-11-07 13:03 | live | submissions\live_v10.csv.gz | valid (no golden: upload to score) | LIVE v10 = dc15838 instalments + partial shares (eval 90.77) |
+| 2026-11-07 13:03 | live UPLOAD | submissions/live_v10.csv.gz | 90.69 (platform) | dc15838 instalments + partial shares (eval 90.77) |
