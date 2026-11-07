@@ -638,6 +638,10 @@ class Engine:
     def run(self) -> None:
         self.stage_batches()
         txns = self.d.txns.sort_values(["booking_date", "bank_txn_id"]).to_dict("records")
+        # within a day, lines quoting our document numbers go first: an unreferenced same-amount payment of the same
+        # payer must not take the invoice another line names explicitly
+        quoted = {t["bank_txn_id"]: bool(self.ref_items(t, bank_blob(t))) for t in txns if t["bank_txn_id"] not in self.result}
+        txns.sort(key=lambda t: (t["booking_date"], not quoted.get(t["bank_txn_id"], False)))
         for txn in txns:
             if txn["bank_txn_id"] in self.result:
                 continue
