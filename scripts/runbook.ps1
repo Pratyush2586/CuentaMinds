@@ -22,6 +22,7 @@ param(
     [string]$Repo = "https://github.com/Pratyush2586/CuentaMinds.git",
     [string]$Ref = "live-v16",
     [string]$Tag = "v17",
+    [string]$Engine = "main",          # LIVE / FINAL engine: main (latest kept) or a tag such as live-v16 (fallback)
     [int]$From = 1,
     [switch]$DryRun
 )
@@ -119,7 +120,18 @@ if ($Phase -in @("setup", "all")) {
 }
 
 # ------------------------------------------------------------------------------------------------ live
+function SyncEngine {
+    Step "Use the latest engine ($Engine)" "the clone must run exactly the engine evaluated in nova7nov; prints the commit" `
+        "git -C $Target fetch --tags; git -C $Target checkout $Engine; git -C $Target pull" {
+        git -C $Target fetch -q --tags; git -C $Target checkout -q $Engine
+        if ($Engine -eq "main") { git -C $Target pull -q }
+        git -C $Target log --oneline -1
+        Push-Location $Target; & $Py -m pytest -q tests/bankrec; Pop-Location
+    }
+}
+
 if ($Phase -in @("live", "all")) {
+    SyncEngine
     Step "Show where we stand" "public leaderboard + our best LIVE score" "GET /api/leaderboard" {
         & $Py -c "import requests; d=requests.get('https://hackathon.usetalky.com/api/leaderboard',timeout=30).json(); [print('  %2d %-28s %s' % (r['rank'], r['team_name'], r['best_live'])) for r in d['rows'][:10]]"
     }
@@ -136,6 +148,7 @@ if ($Phase -in @("live", "all")) {
 
 # ----------------------------------------------------------------------------------------------- final
 if ($Phase -in @("final", "all")) {
+    if ($Phase -eq "final") { SyncEngine }
     Step "Check that FINAL is published" "config.json download 'final' must be available (from 18:00)" "GET /config.json" {
         & $Py -c "import requests,sys; d=next(x for x in requests.get('https://hackathon.usetalky.com/config.json',timeout=30).json()['downloads'] if x['id']=='final'); print(' available:', d.get('available')); sys.exit(0 if d.get('available') else 1)"
     }

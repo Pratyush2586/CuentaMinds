@@ -1,7 +1,7 @@
 # CuentaMinds — Bank Reconciliation Engine: Developer Guide
 
 > **Who this is for:** a developer joining the team who must understand, run, evaluate, improve and submit this code.
-> **State as of:** 2026-11-07 17:15 · `main` = FINAL engine candidate (engine 826dfb0: TRAIN eval 94.025, hold-out 2025-05 93.07) · step-by-step PowerShell commands: [`docs/RUNBOOK_POWERSHELL.md`](RUNBOOK_POWERSHELL.md).
+> **State as of:** 2026-11-07 17:15 · `main` = FINAL engine candidate (engine 0f25a3e: TRAIN eval 94.105, hold-out 2025-05 93.18) · step-by-step PowerShell commands: [`docs/RUNBOOK_POWERSHELL.md`](RUNBOOK_POWERSHELL.md).
 > **Read order:** §1 (the problem) → §2 (setup) → §4 (architecture) → §8 (how we measure) → §10–11 (today's plan).
 > **This guide is kept current.** Every kept change updates §9 (status) and §16 (changelog); see §15.
 
@@ -669,7 +669,8 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | 06eca49 | | 93.67 | 93.08 | | **bug fix: payment runs grouped per debtor account** (run / end-to-end ids are reused across entities → wrong items + false FX_DIFFERENCE + false DUPLICATE_PAYMENT): **+1.51** |
 | f499d8f | | 93.81 | 93.27 | live_v15 | multi-invoice receipt = due-date window of the payer's open items with one invoice left out |
 | **99f29e7** | | **94.14** | **93.58** | **92.59** (live_v16) | early-payment discount on one invoice of a multi-invoice receipt (SHORT_DISCOUNT in window, PARTIAL late); unquoted single net-of-discount payments |
-| **826dfb0** | | **94.32** | **93.73** | (not uploaded) | due-date window with two interior invoices left out (windows of 5–30); hold-out 2025-05 **93.07** (v16: 92.86) → FINAL engine candidate |
+| **826dfb0** | | **94.32** | **93.73** | (not uploaded) | due-date window with two interior invoices left out (windows of 5–30); hold-out 2025-05 **93.07** (v16: 92.86) |
+| **0f25a3e** | | **94.40** | **93.81** | | unexplained receipt that quotes open invoices of one customer (sum below the cash): allocate the quoted invoices, rest unallocated; hold-out **93.18**, 469 / 470 added pairs right → FINAL engine candidate |
 
 ### 9.3 Autoresearch log (2026-11-07)
 
@@ -705,6 +706,7 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | f499d8f | +0.165 | **keep** | due-date window minus one interior invoice (hole) |
 | 99f29e7 | +0.320 | **keep** | early-payment discount on one invoice of a multi-invoice receipt; single net-of-discount (first try crashed on NaN discount %, fixed) |
 | 826dfb0 | +0.165 | **keep** | due-date window minus two interior invoices (short windows only); hold-out +0.21 |
+| 0f25a3e | +0.080 | **keep** | quoted open invoices allocated on an unexplained receipt (funnel mechanism M1: reference present, set not closed); hold-out +0.11 |
 | (earlier) | −0.50 | rejected | exact bitset subset-sum fallback for known payers: too many spurious exact sets |
 
 ### 9.4 Known gaps (LIVE v11 per-segment report, lines lost)
@@ -962,5 +964,5 @@ Discarded experiments are recorded only in §9.3 (one line), so nobody tries the
 | 11-07 15:10 | 9f72a96 | **PDF facts** (+0.33): instalments, retention, advance, cancel & replace, cancelling / paid-out credit notes; SME credit-note rule verified |
 | 11-07 15:20 | ecf7053, 34e6f22 | PDF facts hardened (skeptic); **upload checkpoint** (LIVE y/N, FINAL type UPLOAD); `docs/RUNBOOK_POWERSHELL.md` |
 | 11-07 16:35 | – | **LIVE v16 = 92.59** (+1.12). TRAIN→LIVE gap widened to 1.27: the payment-run id collisions are far more frequent in the merged TRAIN months than in LIVE (AP segments were already right on LIVE), so most of that +1.51 is TRAIN-only; LIVE gains came from discounts, credit notes and the UNIDENTIFIED exception (macro-F1 0.864 → 0.887). The checkpoint now uses the wider gap |
-| 11-07 17:15 | 826dfb0, `scripts/bankrec_funnel.py` | two-hole window kept (+0.165 dev, +0.21 hold-out) → FINAL engine candidate. Failure funnel (TRAIN 2025-03 / 2024-10; ar_ref_noise, ar_1toN_credit_note, ar_n_to_m, ar_dispute_settlement): ~85 % of lost pairs are lines left **unmatched with no usable reference** (4309 / 4566 pairs), almost all big multi-invoice receipts (≥5 items: 330 lines = 4319 pairs) whose golden set is a scattered subset of the payer's open book with an exact sum, so any exact-sum search is ambiguous (the bitset subset-sum fallback already lost −0.50). Other set chosen 567 / 729, consumed by another line 119 / 96, amount wrong 32 / 39. No safe fix before FINAL: frozen |
+| 11-07 17:15 | 826dfb0, `scripts/bankrec_funnel.py` | two-hole window kept (+0.165 dev, +0.21 hold-out) → FINAL engine candidate. Failure funnel (TRAIN 2025-03 / 2024-10; ar_ref_noise, ar_1toN_credit_note, ar_n_to_m, ar_dispute_settlement): ~85 % of lost pairs are lines left **unmatched with no usable reference** (4309 / 4566 pairs), almost all big multi-invoice receipts (≥5 items: 330 lines = 4319 pairs) whose golden set is a scattered subset of the payer's open book with an exact sum, so any exact-sum search is ambiguous (the bitset subset-sum fallback already lost −0.50). Other set chosen 567 / 729, consumed by another line 119 / 96, amount wrong 32 / 39. Fixed the narrow M1 case only (0f25a3e, simulated first with the official scorer, then evaluated: +0.08 dev, +0.11 hold-out). `runbook.ps1` LIVE / FINAL phases now start by syncing the clone to `-Engine` (default `main`, fallback `live-v16`) and running the tests |
 | 11-07 16:20 | 20375dc..99f29e7 | **LIVE v14 = 91.47**; team gap analysis verified: UNIDENTIFIED rule, payment-run account bug (+1.51), window-minus-hole, discounts: **TRAIN eval 91.555 → 93.86** |
