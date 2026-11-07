@@ -47,6 +47,48 @@ def load(phase: str) -> dict:
     return {"dir": d, "tx": tx, "docs": docs, "side": side}
 
 
+def llm_triage(unseen: pd.DataFrame, base: pd.DataFrame, total: int) -> str:
+    """Claude reads a sample of lines whose bank-text layout the parsers have never seen and says how to read them.
+    Regexes fail silently on a new format; an LLM generalises. Advisory only: it proposes, the fix loop validates."""
+    cols = ["entity", "bank", "statement_format", "amount", "currency", "text", "remittance_info", "ref2",
+            "counterparty_name"]
+    cols = [c for c in cols if c in unseen.columns]
+    try:
+        return _triage(unseen, base, total, cols)
+    except Exception as e:  # advisory: never block the run
+        return f"(Claude triage unavailable: {type(e).__name__})"
+
+
+def _triage(unseen: pd.DataFrame, base: pd.DataFrame, total: int, cols: list[str]) -> str:
+    samp = unseen.groupby("entity").head(8).head(40)[cols]
+    known = base[base.entity.isin(samp.entity)].groupby("entity").head(3)[cols]
+    user = f"""{len(unseen)} of {total} bank lines of the new data set have a bank-text layout never seen in the
+baseline set the engine was built on. The engine finds the payer from the counterparty name / IBAN / text words and
+the invoices from document numbers in text / remittance_info (regex tokens, e.g. FV24-0105515, INV25-0101966,
+1072505511), and classifies non-invoice lines (bank fees, interest, taxes, payroll...) from text words.
+
+Sample of UNSEEN-layout lines (CSV):
+{samp.to_csv(index=False)}
+Known-layout lines of the same entities, for contrast (CSV):
+{known.to_csv(index=False)}
+Answer in <= 25 lines: (1) what changed in the layout (new bank / language / field order / reference format);
+(2) for each pattern: where the payer and the document numbers are, and a concrete regex or token rule to extract
+them; (3) severity: does this likely break matching (HIGH / MEDIUM / LOW) and for roughly how many lines;
+(4) the single most valuable parser fix. Do not invent fields not visible in the sample."""
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import analyst
+        analyst.load_env()
+        import anthropic
+        r = anthropic.Anthropic(timeout=180).messages.create(
+            model=analyst.MODEL, max_tokens=2000,
+            system="Role: input-parser engineer for a bank-reconciliation engine. Be concrete and brief.",
+            messages=[{"role": "user", "content": user}])
+        return "".join(b.text for b in r.content if b.type == "text")
+    except Exception as e:  # advisory: never block the run
+        return f"(Claude triage unavailable: {type(e).__name__})"
+
+
 def main() -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
@@ -85,6 +127,9 @@ def main() -> int:
         if v and not P["side"].get(k):
             warn.append(f"[WARN] side folder '{k}' missing or empty (base has {v} files)")
     out += ["", "## Flags"] + (warn or ["[OK] no input drift flagged"])
+    unseen_lines = tp[~blob(tp).map(layout).isin(lay_b)]
+    if len(unseen_lines) and "--no-llm" not in sys.argv:
+        out += ["", "## Claude triage of unseen bank-text layouts (advisory)", llm_triage(unseen_lines, tb, len(tp))]
     text = "\n".join(out)
     print(text)
     f = ROOT / "submissions" / f"{phase}_profile.md"
