@@ -36,3 +36,6 @@
 | 2026-11-07 10:25 | train 2025-03 | submissions\m2025-03_v23b.csv.gz | 86.02 | v23 re-check after revert |
 | 2026-11-07 10:26 | sample | submissions\sample_v23s1.csv.gz | 91.47 | v23 seed0 a |
 | 2026-11-07 10:27 | sample | submissions\sample_v23s2.csv.gz | 91.47 | v23 seed0 b |
+| 2026-11-07 10:30 | sample | submissions\sample_v25.csv.gz | 91.75 | v25 advice deductions explained by policy (discount/withholding/charges) are not disputes |
+| 2026-11-07 10:32 | train 2025-03 | submissions\m2025-03_v23s.csv.gz | 85.98 | v23 seeded baseline |
+| 2026-11-07 10:33 | train 2025-03 | submissions\m2025-03_v25.csv.gz | 89.33 | v25 advice deductions explained by policy are not disputes |

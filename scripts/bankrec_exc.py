@@ -1,10 +1,13 @@
-"""Per-exception precision/recall vs the sample golden: python scripts/bankrec_exc.py SUB"""
+"""Per-exception precision/recall vs the golden: python scripts/bankrec_exc.py SUB [--month YYYY-MM]"""
 import sys
 from collections import Counter
 from pathlib import Path
 from bankrec import data as D
-d = D.find_phase_dir(Path("data/valtermia"), "sample")
-g = D.read(d / "golden_allocations.csv.gz")
+root = Path("data/valtermia")
+if "--month" in sys.argv:
+    g = D.read(root / "cache" / f"month_{sys.argv[sys.argv.index('--month') + 1]}" / "golden.csv.gz")
+else:
+    g = D.read(D.find_phase_dir(root, "sample") / "golden_allocations.csv.gz")
 s = D.read(sys.argv[1])
 key = lambda df: {(r.bank_txn_id, r.item_id): r.exception for r in df.itertuples() if r.exception}
 G, S = key(g), key(s)

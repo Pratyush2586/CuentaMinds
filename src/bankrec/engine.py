@@ -244,7 +244,17 @@ class Engine:
             elif paid > open_:
                 rows.append(Row(self.ids[k], round(open_, 2), "", "FX_DIFFERENCE" if fx else "OVERPAYMENT"))
             elif deduction or reason:
-                rows.append(Row(self.ids[k], round(paid, 2), "", "SHORT_DISPUTE"))
+                # a deduction the policy explains (early-payment discount in its window, withholding rate, bank
+                # charges) is that exception and clears the item; only an unexplained one is a dispute
+                exc = self.short_reason(txn, k, open_ - paid, paid, fx)
+                pct = self._terms.get(self.terms[k], (0, 0))[0]
+                late_discount = pct and abs(paid - (self.total[k] - round(self.total[k] * pct / 100, 2))) <= 0.02
+                if exc in ("SHORT_DISCOUNT", "SHORT_WITHHOLDING", "SHORT_BANK_CHARGES"):
+                    rows.append(Row(self.ids[k], round(open_, 2), "", exc))
+                elif late_discount:  # discount taken after its window: not allowed, item stays open
+                    rows.append(Row(self.ids[k], round(paid, 2), "", "PARTIAL"))
+                else:
+                    rows.append(Row(self.ids[k], round(paid, 2), "", "SHORT_DISPUTE"))
             else:
                 exc = self.short_reason(txn, k, open_ - paid, paid, fx)
                 if exc == "PARTIAL":
