@@ -140,14 +140,13 @@ def cmd_eval(desc: str, baseline: bool = False) -> int:
     print("--- observation (dev month 1) ---")
     print(diagnostics(res[0]))
     if row["status"] in ("discard", "crash") and not baseline:
-        prev = kept[-1]["commit"]
-        if git("rev-parse", "--short", "HEAD~1") == prev:   # undo the single experiment commit, keep other files
+        if git("log", "-1", "--format=%s").startswith("exp:"):   # undo the experiment commit, keep other files
             git("reset", "--soft", "HEAD~1")
             git("checkout", "HEAD", "--", *EDITABLE)
             git("reset", "-q")
-            print(f"reverted to {prev}")
+            print(f"reverted to {git('rev-parse', '--short', 'HEAD')}")
         else:
-            print(f"NOTE: HEAD~1 is not the best commit {prev}; reset manually")
+            print("NOTE: HEAD is not an 'exp:' commit; nothing reverted, reset manually")
     return 0
 
 
