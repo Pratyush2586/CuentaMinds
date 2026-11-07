@@ -433,7 +433,7 @@ class Engine:
             e = self.party_entity.get(p, "")
             best_cov = 0.0
             for tot in self._name_weights(p, e):
-                best_cov = max(best_cov, min(1.0, m / tot))
+                best_cov = max(best_cov, round(min(1.0, m / tot), 6))  # 1 - 1e-16 must tie with 1.0
             if best_cov >= 0.6:
                 scored.append((best_cov, m, p))
         if scored:  # same-name parties are common: break ties by exact name (legal form) and word order
