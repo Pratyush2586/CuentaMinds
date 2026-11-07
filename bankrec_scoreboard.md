@@ -47,3 +47,5 @@
 | 2026-11-07 12:29 | live UPLOAD | submissions/live_v9.csv.gz | 90.32 (platform) | c30a802 v9 = eval 90.55 + Sept-2025 advice layout drift fix |
 | 2026-11-07 13:03 | live | submissions\live_v10.csv.gz | valid (no golden: upload to score) | LIVE v10 = dc15838 instalments + partial shares (eval 90.77) |
 | 2026-11-07 13:03 | live UPLOAD | submissions/live_v10.csv.gz | 90.69 (platform) | dc15838 instalments + partial shares (eval 90.77) |
+| 2026-11-07 13:25 | live | submissions\live_v11.csv.gz | valid (no golden: upload to score) | LIVE v11 = 4755d1e one partial among quoted invoices (eval 90.88) |
+| 2026-11-07 13:26 | live UPLOAD | submissions/live_v11.csv.gz | 90.81 (platform) | 4755d1e one partial among quoted invoices (eval 90.88) |

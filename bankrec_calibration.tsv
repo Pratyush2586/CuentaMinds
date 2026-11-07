@@ -3,3 +3,4 @@ engine_commit	eval_mean	eval_2025-03	eval_2024-10	live_file	live_score	note
 8469efa	90.550	91.46	89.64	live_v8.csv.gz	87.90	before drift fix
 c3731f3	90.550	91.46	89.64	live_v9.csv.gz	90.32	drift fix (LIVE-only, neutral on TRAIN)
 e935293	90.770	91.67	89.87	live_v10.csv.gz	90.69	instalments + partial shares
+d08959f	90.880	91.80	89.96	live_v11.csv.gz	90.81	one partial among quoted invoices; hold-out 2025-05 = 90.57
