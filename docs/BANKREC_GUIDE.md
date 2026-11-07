@@ -123,6 +123,9 @@ close" prototype with a Gemini/Claude agent layer, kept for background (its ~300
 | `scripts/bankrec_exc.py` | per-exception precision / recall / F1 |
 | `scripts/bankrec_diff.py` | the wrong lines of one segment: bank text, golden-only rows, ours-only rows |
 | `scripts/bankrec_probe.py` | look inside the engine for given lines (candidates, ranked parties, refs) |
+| `scripts/submit.py` | **upload pipeline**: organisers' 4-step API (upload-url → S3 → score → poll 5 s). Validates locally first, 3-min spacing, daily quota, FINAL double confirmation; saves the scored JSON to `submissions/results/` |
+| `scripts/live_report.py` | **LIVE feedback**: platform result vs previous upload vs TRAIN months, per segment, ranked by lines lost |
+| `scripts/pipeline.py` | **end-to-end**: `bankrec run --phase live` → validate → (`--submit`) upload + score → report |
 | `bankrec_scoreboard.md` | every `bankrec run` appends a line here (time, phase, file, score, note) |
 | `docs/BANKREC_GUIDE.md` | this guide |
 | `docs/AUTORESEARCH.md` | the experiment protocol the agent follows ("program.md") |
@@ -331,6 +334,12 @@ PYTHONHASHSEED=0 .venv/Scripts/python scripts/bankrec_probe.py 2025-03 BT-2025-0
 # autoresearch loop (§8.3)
 .venv/Scripts/python scripts/autoresearch.py baseline | eval "hypothesis" | holdout | status
 
+# LIVE pipeline (token: HK_TOKEN env var or HK_TOKEN=... in the git-ignored .env; never printed)
+.venv/Scripts/python scripts/pipeline.py --tag v10 --note "what changed" --submit   # build, validate, upload, score, report
+.venv/Scripts/python scripts/submit.py LIVE submissions/live_v9.csv.gz --note "..."   # upload one validated file
+.venv/Scripts/python scripts/live_report.py                                          # latest two platform results vs TRAIN
+.venv/Scripts/python scripts/submit.py FINAL submissions/final_v1.csv.gz --i-confirm-final-is-one-shot   # FINAL, once
+
 # emergency fallback (organisers' naive starter, score ≈ 19)
 .venv/Scripts/python data/valtermia/docs/starter/starter.py --data data/valtermia/final --phase final --out submissions/final_starter.csv.gz
 ```
@@ -396,8 +405,8 @@ Following [karpathy/autoresearch](https://github.com/karpathy/autoresearch). The
 | item | state |
 |---|---|
 | best engine | `main` = `43b9049` (= experiment `8469efa` + log). **TRAIN-month mean 90.55** (2025-03: 91.46, 2024-10: 89.64) |
-| LIVE leaderboard | CuentaMinds **87.56** (live_v7), 2nd. Leader: Exponential 90.69. (live_v4 = 79.55) |
-| LIVE v7 breakdown | pair F1 89.7 % (P 97.4, R 83.1) · line accuracy 90.5 % · exception macro-F1 77.9 % |
+| LIVE leaderboard | CuentaMinds **87.90** (live_v8), 2nd. Leader: Exponential 90.69. (live_v7 87.56, live_v4 79.55) |
+| LIVE v8 breakdown | pair F1 89.9 % (P 97.4, R 83.4) · line accuracy 91.1 % · exception macro-F1 78.1 % (results in `submissions/results/`) |
 | next upload | `live_v9` = 90.55 engine + Sept-2025 advice-layout drift fix (§9.5) |
 | repo | pushed to GitHub (private) |
 
@@ -415,7 +424,7 @@ Following [karpathy/autoresearch](https://github.com/karpathy/autoresearch). The
 | *eval fix* | | 91.17 | 89.37 | | advice window +20 days (re-baseline; v25 + confirming) |
 | exp 3b | | (89.42) | (87.32) | **87.56** (live_v7) | confirming by beneficiary maturity, next business day |
 | exp 6 | | 91.43 | 89.60 | | party-name coverage rounding (float tie bug) |
-| **exp 7** | | **91.46** | **89.64** | | within a day, referenced lines first |
+| **exp 7** | | **91.46** | **89.64** | **87.90** (live_v8) | within a day, referenced lines first |
 | drift fix | | 91.46 | 89.64 | live_v9 | advice short invoice numbers / PO (LIVE-only layout, neutral on TRAIN) |
 
 ### 9.3 Autoresearch log (2026-11-07)
@@ -649,3 +658,4 @@ Discarded experiments are recorded only in §9.3 (one line), so nobody tries the
 | 11-07 11:40 | 8469efa | within a day, referenced lines matched first |
 | 11-07 11:50 | f72c002 | guide rewritten to current state |
 | 11-07 12:10 | c3731f3 | LIVE v7 = 87.56; drift fix for the Sept-2025 advice layout; drift-fix rule in AUTORESEARCH.md |
+| 11-07 12:25 | – | LIVE v8 = 87.90; upload + feedback pipeline (`submit.py`, `live_report.py`, `pipeline.py`) |
