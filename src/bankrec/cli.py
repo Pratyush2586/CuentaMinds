@@ -63,6 +63,7 @@ def _print_score(res: dict) -> None:
 def cmd_run(a) -> int:
     root = Path(a.data)
     t0 = time.time()
+    print(f"[{datetime.now():%H:%M:%S}] loading data ({a.phase if not a.month else a.month}): bank lines, open items, batches, advices, PDF facts", flush=True)
     mp = _model_path(root)
     if a.month:  # dev evaluation on one TRAIN month with the full open book (LIVE-like)
         a.phase = "train"
@@ -94,10 +95,13 @@ def cmd_run(a) -> int:
         print(f"WARNING: PDF facts unavailable ({type(exc).__name__}: {exc}); continuing without them")
         data.pdf_facts = {}
     t1 = time.time()
+    print(f"[{datetime.now():%H:%M:%S}] data loaded in {t1 - t0:.0f}s: {len(data.txns)} bank lines, {len(data.items)} items, "
+          f"{len(data.pdf_facts)} PDF facts; building the engine indexes", flush=True)
     eng = Engine(data, model, advices)
     eng.run()
     t2 = time.time()
     out = Path(a.out or f"submissions/{a.phase}_{datetime.now():%Y%m%d-%H%M%S}.csv.gz")
+    print(f"[{datetime.now():%H:%M:%S}] writing {out} and validating with the official scorer", flush=True)
     write(eng.submission_rows(), out)
     _write_stats(eng, data, out)
     print(f"{out}  load {t1 - t0:.0f}s match {t2 - t1:.0f}s  lines {len(data.txns)}  by stage {dict(Counter(eng.how.values()))}")

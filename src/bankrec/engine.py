@@ -38,6 +38,12 @@ class Row:
     exception: str = ""
 
 
+def _progress(msg: str) -> None:
+    """Timestamped heartbeat on stdout (output only: never changes a result)."""
+    import time as _t
+    print(f"[{_t.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
 def _days(a: str, b: str) -> int:
     return (pd.Timestamp(a) - pd.Timestamp(b)).days
 
@@ -797,19 +803,26 @@ class Engine:
 
     # ------------------------------------------------------------------ stages
     def run(self) -> None:
+        _progress("matching 1/3: batch files (payment runs, direct debits, cards, cheques, confirming)")
         self.stage_batches()
         txns = self.d.txns.sort_values(["booking_date", "bank_txn_id"]).to_dict("records")
+        _progress(f"matching 2/3: line by line ({len(txns)} lines, {len(self.result)} already settled by batches)")
         # within a day, lines quoting our document numbers go first: an unreferenced same-amount payment of the same
         # payer must not take the invoice another line names explicitly
         quoted = {t["bank_txn_id"]: bool(self.ref_items(t, bank_blob(t))) for t in txns if t["bank_txn_id"] not in self.result}
         txns.sort(key=lambda t: (t["booking_date"], not quoted.get(t["bank_txn_id"], False)))
-        for txn in txns:
+        step = max(1, len(txns) // 10)
+        for i, txn in enumerate(txns, 1):
+            if i % step == 0:
+                _progress(f"  line matching {i * 100 // len(txns)}%  ({i}/{len(txns)}, booking date {txn['booking_date']})")
             if txn["bank_txn_id"] in self.result:
                 continue
             self.match_line(txn)
+        _progress("matching 3/3: unmatched lines -> non-item category / UNIDENTIFIED")
         for txn in txns:
             if txn["bank_txn_id"] not in self.result:
                 self.no_item(txn)
+        _progress(f"matching done: {len(self.result)} lines answered")
 
     def match_line(self, txn: dict) -> None:
         t = txn["bank_txn_id"]
