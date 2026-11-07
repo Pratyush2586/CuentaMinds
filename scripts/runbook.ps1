@@ -149,8 +149,9 @@ if ($Phase -in @("live", "all")) {
 # ----------------------------------------------------------------------------------------------- final
 if ($Phase -in @("final", "all")) {
     if ($Phase -eq "final") { SyncEngine }
-    Step "Check that FINAL is published" "config.json download 'final' must be available (from 18:00)" "GET /config.json" {
-        & $Py -c "import requests,sys; d=next(x for x in requests.get('https://hackathon.usetalky.com/config.json',timeout=30).json()['downloads'] if x['id']=='final'); print(' available:', d.get('available')); sys.exit(0 if d.get('available') else 1)"
+    Step "Wait until FINAL is published" "polls config.json every 20 s and continues the moment it is available (unlock time is in UTC)" `
+        "python scripts\wait_final.py" {
+        Push-Location $Target; & $Py scripts\wait_final.py; Pop-Location
     }
     Step "FINAL: download, checksum, extract, sanity, run, gate, review, CHECKPOINT" `
         "ONE scored upload: only typing UPLOAD at the checkpoint sends it (run step ~20 min)" `
