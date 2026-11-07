@@ -773,7 +773,7 @@ class Engine:
                          lambda: self.settle(txn, quoted + credits) if credits else None,
                          lambda: self._settle_sub(txn, quoted + credits) if credits else None,
                          lambda: self._gap_fill(txn, quoted, [k for k in cands if k not in quoted]),
-                     lambda: self._one_partial(txn, quoted, exact_rest=True)]
+                     lambda: self._one_partial(txn, quoted)]
             if len([k for k in quoted if not self.is_credit(k)]) == 1:
                 attempts.append(lambda: self.settle(txn, quoted, force_single=True))
         attempts += [lambda: self._settle_sub(txn, cands), lambda: self.settle_fx(txn, cands),
@@ -786,32 +786,28 @@ class Engine:
                 return r
         return None
 
-    def _one_partial(self, txn: dict, ks: list[int], exact_rest: bool) -> list[Row] | None:
-        """Several invoices paid in full and ONE paid in part (a round share of its total, PARTIAL_FRACTIONS).
-        exact_rest: the other items are exactly ks (quoted refs); else a subset of ks pays the rest."""
+    def _one_partial(self, txn: dict, ks: list[int]) -> list[Row] | None:
+        """The quoted invoices are paid in full except ONE, paid by a round share of its total (PARTIAL_FRACTIONS).
+        All quoted items must be in the line's currency (cents are compared directly)."""
+        if any(self.ccy[k] != txn["currency"] for k in ks):
+            return None
         cash = round(abs(float(txn["amount"])) * 100)
-        inv = [k for k in ks if not self.is_credit(k) and self.ccy[k] == txn["currency"]]
+        inv = [k for k in ks if not self.is_credit(k)]
         if len(inv) < 2:
             return None
+        val = {k: round(self.open[k] * 100) * (-1 if self.is_credit(k) else 1) for k in ks}
+        total = sum(val.values())
         sols = []
         for k in inv:
             for f in PARTIAL_FRACTIONS:
                 part = round(round(self.total[k] * f, 2) * 100)
-                if part >= round(self.open[k] * 100):
-                    continue
-                rest_ks = [j for j in ks if j != k]
-                if exact_rest:
-                    rest = sum(round(self.open[j] * 100) * (-1 if self.is_credit(j) else 1) for j in rest_ks)
-                    if rest + part == cash:
-                        sols.append((k, part, rest_ks))
-                else:
-                    sub = self.subset(dict(txn, amount=(cash - part) / 100), rest_ks) if cash > part else None
-                    if sub:
-                        sols.append((k, part, sub))
+                if part < val[k] and total - val[k] + part == cash:
+                    sols.append((k, part))
         if len(sols) != 1:
             return None
-        k, part, rest_ks = sols[0]
-        rows = self.settle(txn | {"amount": (cash - part) / 100 * (1 if float(txn["amount"]) > 0 else -1)}, rest_ks)
+        k, part = sols[0]
+        rest = [j for j in ks if j != k]
+        rows = self.settle(txn | {"amount": (cash - part) / 100 * (1 if float(txn["amount"]) > 0 else -1)}, rest)
         if not rows or any(r.exception for r in rows):
             return None
         return rows + [Row(self.ids[k], part / 100, "", "PARTIAL")]
