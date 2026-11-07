@@ -1,7 +1,7 @@
 # CuentaMinds — Bank Reconciliation Engine: Developer Guide
 
 > **Who this is for:** a developer joining the team who must understand, run, evaluate, improve and submit this code.
-> **State as of:** 2026-11-07 14:05 (hackathon day) · `main` = baseline tag `baseline-2026-11-07` · experiment branch `autoresearch/nov7`.
+> **State as of:** 2026-11-07 15:25 · `main` = `final-engine` candidate · step-by-step PowerShell commands: [`docs/RUNBOOK_POWERSHELL.md`](RUNBOOK_POWERSHELL.md).
 > **Read order:** §1 (the problem) → §2 (setup) → §4 (architecture) → §8 (how we measure) → §10–11 (today's plan).
 > **This guide is kept current.** Every kept change updates §9 (status) and §16 (changelog); see §15.
 
@@ -118,6 +118,8 @@ close" prototype with a Gemini/Claude agent layer, kept for background (its ~300
 | path | what |
 |---|---|
 | `README.md` | project front page (results, how it works, quick start) |
+| `docs/RUNBOOK_POWERSHELL.md` | **hands-on runbook**: every PowerShell command (setup, data, run, evaluate, inspect, submit, FINAL) |
+| `docs/SME_REVIEW_PACK.md` | data and questions shared with the team's finance/banking SME (local, not committed) |
 | `src/bankrec/` | **the reconciliation engine** (below) |
 | `tests/bankrec/` | bankrec unit tests (FINAL masters merge) |
 | `bankrec_scoreboard.md` | every `bankrec run` and every platform upload appends a line here |
@@ -140,7 +142,9 @@ close" prototype with a Gemini/Claude agent layer, kept for background (its ~300
 | evaluation | `scripts/final_gate.py calibrate / check PHASE FILE` | **FINAL readiness gate**: label-free profile, calibrated on scored LIVE files → PASS/WARN/FAIL |
 | agents (LLM) | `scripts/analyst.py hypotheses / skeptic COMMIT / final-review GATE.txt` | **Claude personas**, advisory (§8.5) |
 | submission | `scripts/submit.py LIVE\|FINAL FILE` | **upload pipeline**: the organisers' 4-step API with guards (§8.6) |
-| submission | `scripts/pipeline.py --tag vN [--submit]` | **end-to-end LIVE**: build → validate → upload + score → report |
+| submission | `scripts/pipeline.py --tag vN [--submit] [--yes]` | **end-to-end LIVE**: build → validate → **checkpoint (y/N)** → upload + score → report |
+| submission | `scripts/checkpoint.py live\|final FILE` | **upload checkpoint**: internal assessment (predicted score, gate) + your decision |
+| analysis | `scripts/pdf_clauses.py`, `scripts/pdf_keywords.py` | mine the clause templates of the document PDFs |
 | submission | `scripts/final_run.py [--download] [--upload --i-confirm-final-is-one-shot]` | **FINAL orchestrator** (§11) |
 
 ### `src/bankrec/` file by file
@@ -154,7 +158,8 @@ close" prototype with a Gemini/Claude agent layer, kept for background (its ~300
 | `advices.py` | 144 | parses remittance advices (pdf/xlsx/csv/txt) into refs, total and per-invoice lines. Parallel and cached |
 | `nonitem.py` | 77 | learned table: (sign, bank code, text shape) → category, trained on TRAIN golden |
 | `submission.py` | 47 | writes the CSV; scores with the official scorer, or validates only when there's no golden |
-| `official_score.py` | 354 | **verbatim** organisers' scorer. Never edit |
+| `pdfdocs.py` | ~140 | **PDF facts**: instalments, retention payable, advance deduction, cancel-and-replace, cancelling / paid-out credit notes (§5) |
+| `src/bankrec/official_score.py` | **verbatim** organisers' scorer. Never edit |
 
 ---
 
@@ -309,6 +314,40 @@ the first success.
 
 `PARTIAL_FRACTIONS = (0.25, 0.3, 0.4, 0.5, 0.6, 0.7)` is **the distribution of paid/total in TRAIN golden partials**. It was
 identical in 2025-03 and 2024-10, so it isn't fitted to LIVE.
+
+### PDF facts (`pdfdocs.py`, used in `subset()`, `open_of()`, `ref_items()`)
+
+The 131k document PDFs are generated **text**: no images, and no tables that need OCR, so `pdfplumber` plus
+multilingual regexes is enough and no LLM is needed. They state facts that exist **nowhere else** (POLICIES §5.7–5.9):
+
+| clause (examples) | fact | use in the engine |
+|---|---|---|
+| "Payment terms: 3 instalments at 60/90/120 days (6,919.30 / 6,919.30 / 6,919.31 USD)" · "3 vencimientos a 60/120/180 días (…)" | every instalment amount | a payment equal to one → that invoice, `PARTIAL` (the last one clears it) |
+| "Retention 10% (Y) withheld until final acceptance … Amount payable at due date: Z" · "Retención en garantía del 5 % … Importe a pagar al vencimiento: Z" | the first payment = Z | 1:1 → `PARTIAL`; the later release of Y clears it |
+| "Less advance received against proforma PF…: X" | payment = total − X | 1:1 → `PARTIAL` |
+| "This invoice cancels and replaces invoice X" · "anula y sustituye a la factura X" | X is void | a payment quoting X settles the replacement; X is never a candidate |
+| credit note "CANCELLING OF INVOICE Nº X" | both are void | neither is ever a candidate |
+| rebate credit note "…will be paid to your bank account" vs "…to be offset against your next payment" | paid out vs netted | paid-out notes are never netted into receipts |
+
+Sanity checks (skeptic review):
+- an instalment plan must add up to the total;
+- retention payable must be 85–97 % of the total (5–10 % retained);
+- 0 < advance < total;
+- facts are keyed by document type.
+
+Parsed once per phase and cached in `cache/pdffacts_<phase>_v<PARSER_VERSION>.json`: TRAIN 268 s, LIVE 26 s. Any failure falls
+back to *no facts* and never stops a run. **Effect: +0.33 on the TRAIN evaluation (91.225 → 91.555)**; the LIVE check is v14.
+
+TRAIN counts with facts:
+
+| fact | count |
+|---|---|
+| instalment plans | 11,400 |
+| cancel-and-replace | 12,766 |
+| retention payables | 7,281 |
+| advance deductions | 1,811 |
+| cancelling credit notes | 2,240 |
+| paid-out credit notes | 11,205 |
 
 ### `subset()`: which items add up to the cash
 
@@ -519,6 +558,35 @@ reproducible and logged.
 | results so far | **skeptic** found a currency-mixing bug and a combinatorial runtime trap in `_one_partial`, and the misfire risks of the first proforma/refund/return rules (fixed in `f62fe80`). **analyst** ranked the unimplemented flows that became the +0.28 experiment |
 | earlier work | the closeops prototype has a separate agent layer (`src/closeops/agents/`, Gemini default, Claude optional). It isn't used by bankrec |
 
+### 8.6a Upload checkpoint (`scripts/checkpoint.py`)
+
+Before **any** upload, the pipeline shows the internal assessment and waits for a human decision. This is what protects
+the single FINAL submission:
+
+```
+========================================================================
+  UPLOAD CHECKPOINT · FINAL · submissions/final_v1.csv.gz
+========================================================================
+  internal TRAIN-month evaluation (best kept)   : 91.56
+  calibrated TRAIN->LIVE gap (recent uploads)  : +0.07
+  predicted platform score                     : ~91.49
+  best LIVE score so far                       : 91.11
+  FINAL readiness gate                         : PASS
+  expected FINAL range (unseen drift)          : ~89.5 .. 91.8
+  REMINDER: FINAL = ONE scored submission. The first valid upload is the score.
+========================================================================
+Do you agree with this assessment and want to upload the FINAL file? Type UPLOAD to confirm:
+```
+
+| mode | question | answer that uploads | on no |
+|---|---|---|---|
+| LIVE | `[y/N]` | `y` | prints how to improve (§7–8 of the runbook) |
+| FINAL | type `UPLOAD` | `UPLOAD` (or `OVERRIDE` on a gate FAIL) | nothing sent; return later with `final_run.py --skip-run --file …` |
+
+Notes:
+- In a non-interactive terminal it never uploads.
+- `pipeline.py --yes` skips the question for unattended LIVE runs. FINAL can't be unattended.
+
 ### 8.6 Submission pipeline in detail
 
 The organisers publish a 4-step API, and `scripts/submit.py` implements it with guards:
@@ -595,7 +663,8 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | d08959f | | 91.80 | 89.96 | **90.81** (live_v11) | one partial among quoted invoices; hold-out 2025-05 = 90.57 |
 | 3d67c36 | | 92.09 | 90.23 | **91.11** (live_v12) | proforma advances, returned transfers, cheque returns, chargebacks, duplicate refunds |
 | f62fe80 | | 92.04 | 90.24 | | skeptic-tightened flows (robustness, −0.02 within noise) |
-| **9c3f786** | | **92.12** | **90.33** | next: live_v13 | cheque/lockbox stubs with short numbers (same resolver as advices) |
+| 9c3f786 | | 92.12 | 90.33 | **91.16** (live_v13) | cheque/lockbox stubs with short numbers (same resolver as advices) |
+| **9f72a96 / ecf7053** | | **92.38** | **90.73** | live_v14 (pending) | **PDF facts** + hardening |
 
 ### 9.3 Autoresearch log (2026-11-07)
 
@@ -622,6 +691,9 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | 3d67c36 | +0.280 | **keep** | unimplemented flows: advances, returned transfers, cheque returns, chargebacks, duplicate refunds (analyst #4) |
 | 2d4ff40 → f62fe80 | −0.020 | **kept (robustness)** | skeptic-tightened flows: fewer misfire paths on unseen data |
 | 9c3f786 | +0.085 | **keep** | cheque/lockbox stubs: short-number resolver |
+| f46d9f3 | +0.005 | discard | SME rule: invoice − its related credit note = payment, 1:1 (already covered by the pair search) |
+| 9f72a96 | **+0.330** | **keep** | **PDF facts**: instalment / retention / advance amounts, cancel & replace, cancelling and paid-out credit notes |
+| 8506390 → ecf7053 | 0.000 | **kept (robustness)** | PDF facts hardened (skeptic): sanity checks, type keys, versioned cache, never-crash fallback |
 | (earlier) | −0.50 | rejected | exact bitset subset-sum fallback for known payers: too many spurious exact sets |
 
 ### 9.4 Known gaps (LIVE v11 per-segment report, lines lost)
@@ -634,6 +706,16 @@ Calibration (`final_gate.py calibrate`): on 4 scored LIVE files, the allocated s
 | `ar_cheque_deposit` | 63 % | 65 % | ~0.7k | short stub numbers fixed in 9c3f786 (not yet on LIVE) |
 | `ar_1toN_text`, `ar_discount_late`, `ar_retention` | 89 / 33 / 48 % | | ~0.5–0.7k each | retention and advance-deduction rules live in PDFs (not parsed yet) |
 | `ar_dispute_settlement` | 88.6 % | 99.7 % | ~150 | LIVE-only gap: likely advice drift downstream |
+
+### 9.4b SME feedback (team finance/banking expert)
+
+| SME point | verification in our code | outcome |
+|---|---|---|
+| a credit note references its invoice | `credit_notes.related_document` (structured); 95 % of netted notes point to an invoice on the same line | data available |
+| payment = invoice − its credit note → net first, then match 1:1 | implemented exactly (`_netted_single`, f46d9f3): **+0.005**, because the pair search already matches invoice + credit note pairs | **rule verified, already covered** (not kept) |
+| two lines: invoice in 1:1, credit note paid out separately | `try_credit_refund` (LIVE `ar_credit_note_paid_out` 88 %) + PDF "paid to your bank account" notes are never netted (pdfdocs) | handled; strengthened by the PDF facts |
+
+The remaining credit-note loss is **multi-invoice payments without references**, which needs a different idea (open question to the SME, §8 of the review pack).
 
 ### 9.5 LIVE vs TRAIN: drift found on 2026-11-07
 
@@ -685,7 +767,7 @@ Times are **Madrid**. The server deadlines are: FINAL data at **18:00**, submiss
 
 > Goal: one **valid** file uploaded by **~18:45**. Run on `main` at the `final-engine` tag, with nothing else running.
 >
-> **One command does steps 1–6:** `.venv/Scripts/python scripts/final_run.py --download`. It downloads and checks the
+> **One command does steps 1–7, with the checkpoint:** `.venv/Scripts/python scripts/final_run.py --download` (PowerShell: `docs/RUNBOOK_POWERSHELL.md` §10). It downloads and checks the
 > SHA-256 against the site's public `config.json`, extracts, sanity-checks, runs, gates, and gets the Claude
 > release-manager review. It stops before uploading. The manual steps below are the same procedure, for when anything needs a hand.
 
@@ -855,4 +937,7 @@ Discarded experiments are recorded only in §9.3 (one line), so nobody tries the
 | 11-07 13:46 | f62fe80 | skeptic-tightened flows (robustness) |
 | 11-07 13:58 | 9c3f786 | cheque/lockbox short stub numbers (+0.085) |
 | 11-07 14:01 | – | **LIVE v12 = 91.11** (pred 91.08) |
-| 11-07 14:05 | – | README.md; guide brought fully up to date (§3, §4, §5, §6, §8.5 LLM integration, §8.6 submission pipeline, §9, §11); baseline tag `baseline-2026-11-07` |
+| 11-07 14:05 | 5925988 | README.md; guide brought fully up to date; baseline tag `baseline-2026-11-07` |
+| 11-07 14:25 | – | **LIVE v13 = 91.16** (pred 91.14); SME review pack |
+| 11-07 15:10 | 9f72a96 | **PDF facts** (+0.33): instalments, retention, advance, cancel & replace, cancelling / paid-out credit notes; SME credit-note rule verified |
+| 11-07 15:20 | ecf7053, 34e6f22 | PDF facts hardened (skeptic); **upload checkpoint** (LIVE y/N, FINAL type UPLOAD); `docs/RUNBOOK_POWERSHELL.md` |
