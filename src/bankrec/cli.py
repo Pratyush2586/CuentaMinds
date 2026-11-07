@@ -88,7 +88,7 @@ def cmd_run(a) -> int:
     print(f"{out}  load {t1 - t0:.0f}s match {t2 - t1:.0f}s  lines {len(data.txns)}  by stage {dict(Counter(eng.how.values()))}")
     res = score(out, golden if golden.exists() else None, list(data.txns.bank_txn_id), data.categories)
     _print_score(res)
-    if res["ok"]:
+    if res["ok"] and not a.no_log:
         shown = res["score"] if golden.exists() else "valid (no golden: upload to score)"
         line = f"| {datetime.now():%Y-%m-%d %H:%M} | {a.phase}{' ' + a.month if a.month else ''} | {out} | {shown} | {a.note} |\n"
         log = Path(LOG)
@@ -130,6 +130,7 @@ def main(argv=None) -> int:
     s.add_argument("--phase", default="sample", choices=D.PHASES)
     s.add_argument("--out")
     s.add_argument("--note", default="")
+    s.add_argument("--no-log", action="store_true", help="do not append to bankrec_scoreboard.md (autoresearch runs)")
     s.add_argument("--month", default="", help="YYYY-MM: evaluate on one TRAIN month with its golden (dev)")
     s.set_defaults(fn=cmd_run)
     s = sub.add_parser("score")

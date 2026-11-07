@@ -10,3 +10,6 @@ submissions/
 .env
 claudeapi.txt
 *.key
+
+# autoresearch experiment logs and run outputs
+autoresearch/
